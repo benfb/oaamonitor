@@ -1,0 +1,113 @@
+{{ template "header.html" . }}
+{{ define "content" }}
+    <canvas id="teamChart"></canvas>
+    <button id="downloadChart">Download Chart as PNG</button>
+    <script>
+        const plugin = {
+          id: 'customCanvasBackgroundColor',
+          beforeDraw: (chart, args, options) => {
+            const {ctx} = chart;
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = options.color || '#99ffff';
+            ctx.fillRect(0, 0, chart.width, chart.height);
+            ctx.restore();
+          }
+        };
+        const teamStats = {{ .TeamStats | json }};
+        const ctx = document.getElementById('teamChart').getContext('2d');
+        
+        // Detect dark mode preference
+        const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        const players = [...new Set(teamStats.map(stat => stat.name))];
+        console.log("Players:", players);  // Add this line to debug the players
+        console.log("Team Stats:", teamStats);  // Add this line to debug the team stats
+        const datasets = players.map(player => {
+            const playerStats = teamStats.filter(stat => stat.name === player);
+            return {
+                label: player,
+                data: playerStats.map(stat => ({
+                    x: stat.date,
+                    y: stat.oaa
+                })),
+                fill: false,
+                borderColor: `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 1)`,
+                backgroundColor: `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 0.2)`,
+                borderWidth: 1,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+            };
+        });
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: datasets
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day',
+                            tooltipFormat: 'MMM d, yyyy', // Date format for the tooltip
+                        },
+                        adapters: {
+                            date: {
+                                useUtc: false
+                            }
+                        },
+                        ticks: {
+                          color: isDarkMode ? '#ffffff' : '#000000'
+                        },
+                        grid: {
+                            color: isDarkMode ? '#323232' : '#000000',
+                            borderColor: isDarkMode ? '#323232' : '#000000'
+                        },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value, index, values) {
+                                return value;
+                            },
+                            color: isDarkMode ? '#ffffff' : '#000000'
+                        },
+                        grid: {
+                            color: isDarkMode ? '#323232' : '#000000',
+                            borderColor: isDarkMode ? '#323232' : '#000000'
+                        }
+                    }
+                },
+                tooltips: {
+                    callbacks: {
+                        label: function(tooltipItem, data) {
+                            return `Date: ${tooltipItem.label}, OAA: ${tooltipItem.raw.y}`;
+                        }
+                    }
+                },
+                plugins: {
+                  customCanvasBackgroundColor: {
+                    color: isDarkMode? '#181818' : 'white',
+                  },
+                  legend: {
+                    labels: {
+                    color: isDarkMode ? '#ffffff' : '#000000',
+                    fontColor: isDarkMode ? '#ffffff' : '#000000'
+                  }
+                }
+                }
+            },
+            plugins: [plugin]
+        });
+        // Function to download the chart as a PNG
+        document.getElementById('downloadChart').addEventListener('click', function() {
+            const link = document.createElement('a');
+            link.href = chart.toBase64Image();
+            link.download = '{{ .TeamName }}_OAA_Chart.png';
+            link.click();
+        });
+    </script>
+{{ end }}
+{{ template "footer.html" . }}

@@ -1,0 +1,116 @@
+/* Basic styling */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif,
+        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        "Noto Color Emoji";
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+header,
+footer {
+    padding: 1em;
+    background-color: #f8f9fa;
+    text-align: center;
+}
+
+h1,
+h2 {
+    margin: 1em 0 0.5em;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+ul li {
+    margin: 0.5em 0;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 0.5em;
+    margin: 1em 0;
+    box-sizing: border-box;
+}
+
+/* Margin for all elements */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    padding: 1em;
+}
+
+h1,
+h2 {
+    margin: 1em 0;
+}
+
+ul {
+    margin: 1em 0;
+}
+
+input[type="text"] {
+    margin: 1em 0;
+}
+
+/* Light mode */
+body {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+a {
+    color: #1e90ff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+a:visited {
+    color: #1e90ff;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #121212;
+        color: #ffffff;
+    }
+
+    a {
+        color: #bb86fc;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+    a:visited {
+        color: #bb86fc;
+    }
+
+    input[type="text"] {
+        background-color: #333333;
+        color: #ffffff;
+        border: 1px solid #444444;
+    }
+
+    input[type="text"]::placeholder {
+        color: #bbbbbb;
+    }
+
+    header,
+    footer {
+        background-color: #1c1c1c;
+    }
+}

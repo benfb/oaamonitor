@@ -1,0 +1,97 @@
+{{ template "header" . }}
+
+{{ define "content" }}
+        <canvas id="playerChart"></canvas>
+        <button id="downloadChart">Download Chart as PNG</button>
+        <script>
+            const plugin = {
+              id: 'customCanvasBackgroundColor',
+              beforeDraw: (chart, args, options) => {
+                const {ctx} = chart;
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-over';
+                ctx.fillStyle = options.color || '#99ffff';
+                ctx.fillRect(0, 0, chart.width, chart.height);
+                ctx.restore();
+              }
+            };
+                const stats = {{ .PlayerStats | json }};
+                console.log("PlayerStats data:", stats);  // Add this line to debug the data
+                const ctx = document.getElementById('playerChart').getContext('2d');
+                
+                // Detect dark mode preference
+                const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        
+                const labels = stats.map(stat => stat.date);
+                const data = stats.map(stat => stat.oaa);
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'OAA',
+                            data: data,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1,
+                            fill: false,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                ticks: {
+                                    beginAtZero: true,
+                                    color: isDarkMode ? '#ffffff' : '#000000'
+                                },
+                                grid: {
+                                    color: isDarkMode ? '#323232' : '#000000',
+                                    borderColor: isDarkMode ? '#323232' : '#000000'
+                                }
+                            },
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'day',
+                                    tooltipFormat: 'MMM d, yyyy'
+                                },
+                                adapters: {
+                                  date: {
+                                    useUtc: false
+                                  }
+                                },
+                                ticks: {
+                                    color: isDarkMode ? '#ffffff' : '#000000'
+                                },
+                                grid: {
+                                    color: isDarkMode ? '#323232' : '#000000',
+                                    borderColor: isDarkMode ? '#323232' : '#000000'
+                                }
+                            }
+                        },
+                        plugins: {
+                          customCanvasBackgroundColor: {
+                            color: isDarkMode? '#181818' : 'white',
+                          },
+                          legend: {
+                            labels: {
+                              color: isDarkMode ? '#ffffff' : '#000000',
+                              fontColor: isDarkMode ? '#ffffff' : '#000000'
+                            }
+                          }
+                        }
+                    },
+                    plugins: [plugin]
+                });
+                // Function to download the chart as a PNG
+                document.getElementById('downloadChart').addEventListener('click', function() {
+                    const link = document.createElement('a');
+                    link.href = chart.toBase64Image();
+                    link.download = '{{ .PlayerName }}_OAA_Chart.png';
+                    link.click();
+                });
+        </script>
+{{ end }}
+{{ template "footer" . }}
