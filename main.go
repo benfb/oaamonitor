@@ -128,7 +128,7 @@ func main() {
 			PlayerName  string
 			PlayerStats []Stat
 		}{
-			Title:       fmt.Sprintf("Player Stats - %s", playerName),
+			Title:       fmt.Sprintf("%s Outs Above Average", playerName),
 			PlayerName:  playerName,
 			PlayerStats: playerStats,
 		}
@@ -178,7 +178,7 @@ func main() {
 			TeamName  string
 			TeamStats []Stat
 		}{
-			Title:     fmt.Sprintf("Team Stats - %s", capitalizedTeamName),
+			Title:     fmt.Sprintf("%s Outs Above Average", capitalizedTeamName),
 			TeamName:  capitalizedTeamName,
 			TeamStats: teamStats,
 		}
