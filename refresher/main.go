@@ -1,25 +1,30 @@
-package main
+package refresher
 
 import (
+	"context"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func main() {
+func GetLatestOAA() {
 	// Get the current year
 	currentYear := time.Now().Year()
 
 	// Construct the URL
-	url := fmt.Sprintf("https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear=%d&endYear=%d&split=yes&team=&min=10&pos=&roles=&viz=hide&csv=true", currentYear, currentYear)
+	url := fmt.Sprintf("https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear=%d&endYear=%d&split=yes&team=&range=year&min=10&pos=&roles=&viz=hide&csv=true", currentYear, currentYear)
 
 	// Download the CSV file to a temporary file
 	tmpFile, err := downloadFile(url)
@@ -37,6 +42,13 @@ func main() {
 	}
 
 	fmt.Println("CSV data successfully inserted or updated in the database.")
+	// Find the SQLite database
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		dbPath = "./data/oaamonitor.db"
+	}
+	uploadDatabaseToStorage(dbPath)
+	fmt.Println("Database successfully uploaded to Fly Storage.")
 }
 
 func downloadFile(url string) (*os.File, error) {
@@ -203,6 +215,48 @@ func processCSV(filepath string) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// Upload the SQLite database to Tigris Fly Storage
+func uploadDatabaseToStorage(dbPath string) error {
+	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Printf("Failed to load SDK configuration: %v", err)
+		return err
+	}
+
+	// Create S3 service client
+	svc := s3.NewFromConfig(sdkConfig, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String("https://fly.storage.tigris.dev")
+		o.Region = "auto"
+	})
+
+	// Open the SQLite database file
+	file, err := os.Open(dbPath)
+	if err != nil {
+		log.Printf("Failed to open database file: %v", err)
+		return err
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		log.Printf("Failed to get file info: %v", err)
+		return err
+	}
+
+	_, err = svc.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket:        aws.String("oaamonitor"),
+		Key:           aws.String("oaamonitor.db"),
+		Body:          file,
+		ContentLength: aws.Int64(fileInfo.Size()),
+	})
+	if err != nil {
+		log.Printf("Failed to upload database file: %v", err)
+		return err
 	}
 
 	return nil

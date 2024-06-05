@@ -1,17 +1,24 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/benfb/oaamonitor/refresher"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -27,12 +34,61 @@ type Stat struct {
 	DiffSuccessRate      float64 `json:"diff_success_rate"`
 }
 
+func runRepeatedly(fn func(), interval time.Duration) {
+	go func() {
+		// fn() // Run once before timer takes effect
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			log.Println("Refreshing data...")
+			fn()
+		}
+	}()
+}
+
+func downloadDatabaseFromStorage(dbPath string) error {
+	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Printf("Failed to load SDK configuration: %v", err)
+		return err
+	}
+	// Create S3 service client
+	svc := s3.NewFromConfig(sdkConfig, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String("https://fly.storage.tigris.dev")
+		o.Region = "auto"
+	})
+	// Download the SQLite database file
+	file, err := os.Create(dbPath)
+	if err != nil {
+		log.Printf("Failed to create database file: %v", err)
+		return err
+	}
+	defer file.Close()
+	resp, err := svc.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String("oaamonitor"),
+		Key:    aws.String("oaamonitor.db"),
+	})
+	if err != nil {
+		log.Printf("Failed to download database file: %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		log.Printf("Failed to save database file: %v", err)
+		return err
+	}
+	return nil
+}
+
 func main() {
 	// Find the SQLite database
 	dbPath := os.Getenv("DATABASE_PATH")
 	if dbPath == "" {
 		dbPath = "./data/oaamonitor.db"
 	}
+	downloadDatabaseFromStorage(dbPath)
+	runRepeatedly(refresher.GetLatestOAA, 1*time.Hour)
 	// Open the SQLite database
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -40,7 +96,6 @@ func main() {
 	}
 	defer db.Close()
 
-	// Create an HTTP handler for the root path
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		players, err := fetchPlayers(db)
 		if err != nil {
@@ -206,29 +261,6 @@ func main() {
 		log.Fatal(err)
 	}
 }
-
-// fetchStats retrieves all statistics from the database
-// func fetchStats(db *sql.DB) ([]Stat, error) {
-// 	rows, err := db.Query("SELECT DISTINCT name player_id, name, team, oaa, date(loaded_at) as date, actual_success_rate, estimated_success_rate, diff_success_rate FROM outs_above_average WHERE (player_id, loaded_at) IN (SELECT player_id, MAX(loaded_at) FROM outs_above_average GROUP BY player_id)")
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-
-// 	var stats []Stat
-// 	for rows.Next() {
-// 		var stat Stat
-// 		if err := rows.Scan(&stat.PlayerID, &stat.Name, &stat.Team, &stat.OAA, &stat.Date, &stat.ActualSuccessRate, &stat.EstimatedSuccessRate, &stat.DiffSuccessRate); err != nil {
-// 			return nil, err
-// 		}
-// 		stats = append(stats, stat)
-// 	}
-// 	if err := rows.Err(); err != nil {
-// 		return nil, err
-// 	}
-
-// 	return stats, nil
-// }
 
 // fetchPlayers retrieves distinct player IDs and names from the database in alphabetical order
 func fetchPlayers(db *sql.DB) ([]Player, error) {
