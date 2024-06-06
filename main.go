@@ -323,6 +323,7 @@ func fetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
 		diff_success_rate
 	FROM ranked_data
 	WHERE rn = 1
+	AND player_id = ?
 	ORDER BY player_id, date;"`, playerID)
 	if err != nil {
 		return nil, "", err
@@ -348,7 +349,40 @@ func fetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
 
 // fetchTeamStats retrieves statistics for all players in a specific team from the database
 func fetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
-	rows, err := db.Query("SELECT player_id, full_name, team, oaa, date(loaded_at) as date, actual_success_rate, estimated_success_rate, diff_success_rate FROM outs_above_average WHERE (team) IN (SELECT team FROM outs_above_average WHERE LOWER(team) = ? GROUP BY team)", teamName)
+	rows, err := db.Query(`WITH ranked_data AS (
+		SELECT 
+			player_id,
+			full_name,
+			team,
+			oaa,
+			DATE(loaded_at) AS date,
+			actual_success_rate,
+			estimated_success_rate,
+			diff_success_rate,
+			ROW_NUMBER() OVER (
+				PARTITION BY player_id, DATE(loaded_at)
+				ORDER BY loaded_at DESC
+			) AS rn
+		FROM outs_above_average
+		WHERE team IN (
+			SELECT team
+			FROM outs_above_average
+			WHERE LOWER(team) = ?
+			GROUP BY team
+		)
+	)
+	SELECT 
+		player_id,
+		full_name,
+		team,
+		oaa,
+		date,
+		actual_success_rate,
+		estimated_success_rate,
+		diff_success_rate
+	FROM ranked_data
+	WHERE rn = 1
+	ORDER BY player_id, date;`, teamName)
 	if err != nil {
 		return nil, "", err
 	}
