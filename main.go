@@ -296,7 +296,7 @@ type Player struct {
 
 // fetchPlayerStats retrieves statistics for a specific player from the database
 func fetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
-	rows, err := db.Query("SELECT player_id, full_name, team, oaa, date(loaded_at) as date, actual_success_rate, estimated_success_rate, diff_success_rate FROM outs_above_average WHERE player_id IN (SELECT player_id FROM outs_above_average WHERE player_id = ? GROUP BY player_id)", playerID)
+	rows, err := db.Query("SELECT player_id, full_name, team, oaa, date(loaded_at) as date, actual_success_rate, estimated_success_rate, diff_success_rate FROM outs_above_average WHERE player_id IN (SELECT player_id FROM outs_above_average WHERE player_id = ? GROUP BY player_id) AND loaded_at = (SELECT MAX(loaded_at) FROM outs_above_average WHERE date(loaded_at) = date((SELECT MAX(loaded_at) FROM outs_above_average)))", playerID)
 	if err != nil {
 		return nil, "", err
 	}
