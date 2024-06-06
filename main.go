@@ -321,7 +321,7 @@ func fetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
 
 // fetchTeamStats retrieves statistics for all players in a specific team from the database
 func fetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
-	rows, err := db.Query("SELECT player_id, full_name, team, oaa, date(loaded_at) as date, actual_success_rate, estimated_success_rate, diff_success_rate FROM outs_above_average WHERE (team, loaded_at) IN (SELECT team, MAX(loaded_at) FROM outs_above_average WHERE LOWER(team) = ? GROUP BY team)", teamName)
+	rows, err := db.Query("SELECT player_id, full_name, team, oaa, date(loaded_at) as date, actual_success_rate, estimated_success_rate, diff_success_rate FROM outs_above_average WHERE (team) IN (SELECT team FROM outs_above_average WHERE LOWER(team) = ? GROUP BY team)", teamName)
 	if err != nil {
 		return nil, "", err
 	}
