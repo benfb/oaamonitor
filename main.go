@@ -324,7 +324,7 @@ func fetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
 	FROM ranked_data
 	WHERE rn = 1
 	AND player_id = ?
-	ORDER BY player_id, date;"`, playerID)
+	ORDER BY player_id, date;`, playerID)
 	if err != nil {
 		return nil, "", err
 	}
