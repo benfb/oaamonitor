@@ -296,7 +296,34 @@ type Player struct {
 
 // fetchPlayerStats retrieves statistics for a specific player from the database
 func fetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
-	rows, err := db.Query("SELECT player_id, full_name, team, oaa, date(loaded_at) as date, actual_success_rate, estimated_success_rate, diff_success_rate FROM outs_above_average WHERE player_id IN (SELECT player_id FROM outs_above_average WHERE player_id = ? GROUP BY player_id) AND loaded_at = (SELECT MAX(loaded_at) FROM outs_above_average WHERE date(loaded_at) = date((SELECT MAX(loaded_at) FROM outs_above_average)))", playerID)
+	rows, err := db.Query(`WITH ranked_data AS (
+		SELECT 
+			player_id,
+			full_name,
+			team,
+			oaa,
+			DATE(loaded_at) AS date,
+			actual_success_rate,
+			estimated_success_rate,
+			diff_success_rate,
+			ROW_NUMBER() OVER (
+				PARTITION BY player_id, DATE(loaded_at)
+				ORDER BY loaded_at DESC
+			) AS rn
+		FROM outs_above_average
+	)
+	SELECT 
+		player_id,
+		full_name,
+		team,
+		oaa,
+		date,
+		actual_success_rate,
+		estimated_success_rate,
+		diff_success_rate
+	FROM ranked_data
+	WHERE rn = 1
+	ORDER BY player_id, date;"`, playerID)
 	if err != nil {
 		return nil, "", err
 	}
@@ -321,7 +348,7 @@ func fetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
 
 // fetchTeamStats retrieves statistics for all players in a specific team from the database
 func fetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
-	rows, err := db.Query("SELECT player_id, full_name, team, oaa, date(loaded_at) as date, actual_success_rate, estimated_success_rate, diff_success_rate FROM outs_above_average WHERE (team) IN (SELECT team FROM outs_above_average WHERE LOWER(team) = ? GROUP BY team) AND loaded_at = (SELECT MAX(loaded_at) FROM outs_above_average WHERE date(loaded_at) = date((SELECT MAX(loaded_at) FROM outs_above_average)))", teamName)
+	rows, err := db.Query("SELECT player_id, full_name, team, oaa, date(loaded_at) as date, actual_success_rate, estimated_success_rate, diff_success_rate FROM outs_above_average WHERE (team) IN (SELECT team FROM outs_above_average WHERE LOWER(team) = ? GROUP BY team)", teamName)
 	if err != nil {
 		return nil, "", err
 	}
