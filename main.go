@@ -129,6 +129,7 @@ func handleIndexPage(w http.ResponseWriter, r *http.Request) {
 func main() {
 	cfg := config.NewConfig()
 	if cfg.DownloadDatabase {
+		log.Println("Downloading database from Fly Storage")
 		storage.DownloadDatabase(cfg.DatabasePath)
 	}
 	runRepeatedly(refresher.GetLatestOAA, time.Duration(cfg.RefreshRate)*time.Second)

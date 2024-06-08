@@ -124,8 +124,8 @@ func processCSV(filepath, dbPath string) error {
 		actual_success_rate REAL,
 		estimated_success_rate REAL,
 		diff_success_rate REAL,
-		loaded_at DATE DEFAULT CURRENT_DATE,
-		UNIQUE(player_id, loaded_at)
+		date DATE DEFAULT CURRENT_DATE,
+		UNIQUE(player_id, date)
 	);`
 	_, err = db.Exec(createTableSQL)
 	if err != nil {
