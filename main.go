@@ -26,13 +26,13 @@ var db *sql.DB
 func runRepeatedly(fn func(), interval time.Duration) {
 	go func() {
 		// fn() // Run once before timer takes effect
-		next10AM := time.Date(time.Now().UTC().Year(), time.Now().UTC().Month(), time.Now().UTC().Day(), 10, 0, 0, 0, time.UTC)
-		if next10AM.Before(time.Now().UTC()) {
-			next10AM = next10AM.AddDate(0, 0, 1)
-		}
-		durationUntilNext10AM := next10AM.Sub(time.Now().UTC())
-		fmt.Println("Sleeping for ", durationUntilNext10AM)
-		time.Sleep(durationUntilNext10AM)
+		// next10AM := time.Date(time.Now().UTC().Year(), time.Now().UTC().Month(), time.Now().UTC().Day(), 10, 0, 0, 0, time.UTC)
+		// if next10AM.Before(time.Now().UTC()) {
+		// 	next10AM = next10AM.AddDate(0, 0, 1)
+		// }
+		// durationUntilNext10AM := next10AM.Sub(time.Now().UTC())
+		// fmt.Println("Sleeping for ", durationUntilNext10AM)
+		// time.Sleep(durationUntilNext10AM)
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for range ticker.C {

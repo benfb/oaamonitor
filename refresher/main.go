@@ -133,7 +133,19 @@ func processCSV(filepath, dbPath string) error {
 	}
 
 	// Prepare the insert or replace statement
-	insertSQL := `INSERT OR REPLACE INTO outs_above_average (player_id, first_name, last_name, full_name, team, oaa, actual_success_rate, estimated_success_rate, diff_success_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	insertSQL := `
+	INSERT INTO outs_above_average (player_id, first_name, last_name, full_name, team, oaa, actual_success_rate, estimated_success_rate, diff_success_rate, date)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE)
+	ON CONFLICT(player_id, date) DO UPDATE SET
+		first_name = excluded.first_name,
+		last_name = excluded.last_name,
+		full_name = excluded.full_name,
+		team = excluded.team,
+		oaa = excluded.oaa,
+		actual_success_rate = excluded.actual_success_rate,
+		estimated_success_rate = excluded.estimated_success_rate,
+		diff_success_rate = excluded.diff_success_rate
+	`
 	stmt, err := db.Prepare(insertSQL)
 	if err != nil {
 		return err

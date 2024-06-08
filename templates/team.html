@@ -30,8 +30,6 @@
                     y: stat.oaa
                 })),
                 fill: false,
-                // borderColor: `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 1)`,
-                // backgroundColor: `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 0.5)`,
                 borderWidth: 1,
                 pointRadius: 5,
                 pointHoverRadius: 7,
@@ -58,14 +56,17 @@
                         grid: {
                             color: isDarkMode ? '#323232' : '#E5E5E5',
                         },
+                        ticks: {
+                            align: 'start',
+                        }
                     },
                     y: {
                         ticks: {
-                            stepSize: 1,
+                            stepSize: 1, 
                         },
                         grid: {
                             color: isDarkMode ? '#323232' : '#E5E5E5',
-                        }
+                        },
                     }
                 },
                 plugins: {
