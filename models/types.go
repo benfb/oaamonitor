@@ -22,28 +22,7 @@ type Stat struct {
 
 // FetchTeamStats retrieves statistics for all players in a specific team from the database
 func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
-	rows, err := db.Query(`WITH ranked_data AS (
-		SELECT 
-			player_id,
-			full_name,
-			team,
-			oaa,
-			DATE(loaded_at) AS date,
-			actual_success_rate,
-			estimated_success_rate,
-			diff_success_rate,
-			ROW_NUMBER() OVER (
-				PARTITION BY player_id, DATE(loaded_at)
-				ORDER BY loaded_at DESC
-			) AS rn
-		FROM outs_above_average
-		WHERE team IN (
-			SELECT team
-			FROM outs_above_average
-			WHERE LOWER(team) = ?
-			GROUP BY team
-		)
-	)
+	rows, err := db.Query(`
 	SELECT 
 		player_id,
 		full_name,
@@ -53,8 +32,8 @@ func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 		actual_success_rate,
 		estimated_success_rate,
 		diff_success_rate
-	FROM ranked_data
-	WHERE rn = 1
+	FROM outs_above_average
+	GROUP BY player_id, date
 	ORDER BY player_id, date;`, teamName)
 	if err != nil {
 		return nil, "", err
@@ -106,22 +85,7 @@ func FetchPlayers(db *sql.DB) ([]Player, error) {
 
 // FetchPlayerStats retrieves statistics for a specific player from the database
 func FetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
-	rows, err := db.Query(`WITH ranked_data AS (
-		SELECT 
-			player_id,
-			full_name,
-			team,
-			oaa,
-			DATE(loaded_at) AS date,
-			actual_success_rate,
-			estimated_success_rate,
-			diff_success_rate,
-			ROW_NUMBER() OVER (
-				PARTITION BY player_id, DATE(loaded_at)
-				ORDER BY loaded_at DESC
-			) AS rn
-		FROM outs_above_average
-	)
+	rows, err := db.Query(`
 	SELECT 
 		player_id,
 		full_name,
@@ -131,9 +95,8 @@ func FetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
 		actual_success_rate,
 		estimated_success_rate,
 		diff_success_rate
-	FROM ranked_data
-	WHERE rn = 1
-	AND player_id = ?
+	FROM outs_above_average
+	WHERE player_id = ?
 	ORDER BY player_id, date;`, playerID)
 	if err != nil {
 		return nil, "", err
