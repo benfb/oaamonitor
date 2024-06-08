@@ -1,21 +1,18 @@
 package refresher
 
 import (
-	"context"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/benfb/oaamonitor/config"
+	"github.com/benfb/oaamonitor/storage"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -34,8 +31,10 @@ func GetLatestOAA() {
 	}
 	defer os.Remove(tmpFile.Name())
 
+	cfg := config.NewConfig()
+
 	// Process the CSV file and insert into the database
-	err = processCSV(tmpFile.Name())
+	err = processCSV(tmpFile.Name(), cfg.DatabasePath)
 	if err != nil {
 		fmt.Printf("Failed to process CSV file: %v\n", err)
 		return
@@ -43,12 +42,10 @@ func GetLatestOAA() {
 
 	fmt.Println("CSV data successfully inserted or updated in the database.")
 	// Find the SQLite database
-	dbPath := os.Getenv("DATABASE_PATH")
-	if dbPath == "" {
-		dbPath = "./data/oaamonitor.db"
+	if cfg.UploadDatabase {
+		storage.UploadDatabase(cfg.DatabasePath)
+		fmt.Println("Database successfully uploaded to Fly Storage.")
 	}
-	uploadDatabaseToStorage(dbPath)
-	fmt.Println("Database successfully uploaded to Fly Storage.")
 }
 
 func downloadFile(url string) (*os.File, error) {
@@ -82,7 +79,7 @@ func downloadFile(url string) (*os.File, error) {
 	return tmpFile, nil
 }
 
-func processCSV(filepath string) error {
+func processCSV(filepath, dbPath string) error {
 	// Open the CSV file
 	file, err := os.Open(filepath)
 	if err != nil {
@@ -107,11 +104,6 @@ func processCSV(filepath string) error {
 		return fmt.Errorf("unexpected number of header fields: got %d, want %d", len(header), expectedFields)
 	}
 
-	// Find the SQLite database
-	dbPath := os.Getenv("DATABASE_PATH")
-	if dbPath == "" {
-		dbPath = "./data/oaamonitor.db"
-	}
 	// Open the database
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -215,48 +207,6 @@ func processCSV(filepath string) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-// Upload the SQLite database to Tigris Fly Storage
-func uploadDatabaseToStorage(dbPath string) error {
-	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		log.Printf("Failed to load SDK configuration: %v", err)
-		return err
-	}
-
-	// Create S3 service client
-	svc := s3.NewFromConfig(sdkConfig, func(o *s3.Options) {
-		o.BaseEndpoint = aws.String("https://fly.storage.tigris.dev")
-		o.Region = "auto"
-	})
-
-	// Open the SQLite database file
-	file, err := os.Open(dbPath)
-	if err != nil {
-		log.Printf("Failed to open database file: %v", err)
-		return err
-	}
-	defer file.Close()
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		log.Printf("Failed to get file info: %v", err)
-		return err
-	}
-
-	_, err = svc.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket:        aws.String("oaamonitor"),
-		Key:           aws.String("oaamonitor.db"),
-		Body:          file,
-		ContentLength: aws.Int64(fileInfo.Size()),
-	})
-	if err != nil {
-		log.Printf("Failed to upload database file: %v", err)
-		return err
 	}
 
 	return nil

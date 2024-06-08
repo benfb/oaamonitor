@@ -3,7 +3,7 @@
     <h2>Teams</h2>
     <ul>
         {{ range .Teams }}
-        <li><a href="/team/{{ . | urlquery }}">{{ . }}</a></li>
+        <li><a href="/team/{{ . | urlquery }}">{{ . | Title }}</a></li>
         {{ end }}
     </ul>
 
