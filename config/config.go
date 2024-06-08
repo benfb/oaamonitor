@@ -1,7 +1,6 @@
 package config
 
 import (
-	"database/sql"
 	"log"
 	"os"
 	"strconv"
@@ -9,7 +8,6 @@ import (
 
 // Config is a struct that holds the configuration for the application.
 type Config struct {
-	DB               *sql.DB
 	DatabasePath     string
 	DownloadDatabase bool
 	RefreshRate      int
@@ -18,40 +16,48 @@ type Config struct {
 
 // NewConfig returns a new Config struct.
 func NewConfig() *Config {
-	dbPath := os.Getenv("DATABASE_PATH")
-	if dbPath == "" {
-		dbPath = "./data/oaamonitor.db"
-	}
-	refreshRate := os.Getenv("REFRESH_RATE")
-	if refreshRate == "" {
-		refreshRate = "3600"
-	}
-	refreshRateInt, err := strconv.Atoi(refreshRate)
-	if err != nil {
-		log.Fatal(err)
-	}
-	downloadDatabase := os.Getenv("DOWNLOAD_DATABASE")
-	if downloadDatabase == "" {
-		downloadDatabase = "false"
-	}
-	downloadDatabaseBool, err := strconv.ParseBool(downloadDatabase)
-	if err != nil {
-		log.Fatal(err)
-	}
-	uploadDatabase := os.Getenv("UPLOAD_DATABASE")
-	if uploadDatabase == "" {
-		uploadDatabase = "false"
-	}
-	uploadDatabaseBool, err := strconv.ParseBool(uploadDatabase)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	return &Config{
-		DB:               &sql.DB{},
-		DatabasePath:     dbPath,
-		DownloadDatabase: downloadDatabaseBool,
-		RefreshRate:      refreshRateInt,
-		UploadDatabase:   uploadDatabaseBool,
+		DatabasePath:     GetEnvStringOrDefault("DATABASE_PATH", "./data/oaamonitor.db"),
+		DownloadDatabase: GetEnvBoolOrDefault("DOWNLOAD_DATABASE", false),
+		RefreshRate:      GetEnvIntOrDefault("REFRESH_RATE", 3600),
+		UploadDatabase:   GetEnvBoolOrDefault("UPLOAD_DATABASE", false),
 	}
+}
+
+// GetEnvStringOrDefault takes an environment variable name and a default value,
+// and returns the value of the environment variable if it is present, or the default value otherwise.
+func GetEnvStringOrDefault(envVarName, defaultValue string) string {
+	value := os.Getenv(envVarName)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+// GetEnvIntOrDefault takes an environment variable name and a default value,
+// and returns the value of the environment variable as an integer if it is present, or the default value otherwise.
+func GetEnvIntOrDefault(envVarName string, defaultValue int) int {
+	valueStr := os.Getenv(envVarName)
+	if valueStr == "" {
+		return defaultValue
+	}
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return value
+}
+
+// GetEnvBoolOrDefault takes an environment variable name and a default value,
+// and returns the value of the environment variable as a boolean if it is present, or the default value otherwise.
+func GetEnvBoolOrDefault(envVarName string, defaultValue bool) bool {
+	valueStr := os.Getenv(envVarName)
+	if valueStr == "" {
+		return defaultValue
+	}
+	value, err := strconv.ParseBool(valueStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return value
 }

@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -134,29 +133,28 @@ func main() {
 	}
 	runRepeatedly(refresher.GetLatestOAA, time.Duration(cfg.RefreshRate)*time.Second)
 	// Open the SQLite database
-	db = cfg.DB
-	defer db.Close()
-
-	handler := NewServer(log.New(os.Stdout, "oaamonitor: ", log.LstdFlags))
-
-	// Start the server
-	log.Println("Starting server on :8080")
-	server := &http.Server{
-		Addr:    ":8080",
-		Handler: handler,
-	}
-	if err := server.ListenAndServe(); err != nil {
+	var err error
+	db, err = sql.Open("sqlite3", cfg.DatabasePath)
+	if err != nil {
 		log.Fatal(err)
 	}
-}
+	defer db.Close()
 
-func NewServer(logger *log.Logger) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleIndexPage)
 	mux.HandleFunc("GET /player/{id}", handlePlayerPage)
 	mux.HandleFunc("GET /team/{id}", handleTeamPage)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	return mux
+
+	// Start the server
+	log.Println("Starting server on :8080")
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func renderTemplate(w http.ResponseWriter, templatePath string, data interface{}) error {
