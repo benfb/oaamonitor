@@ -33,6 +33,7 @@ func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 		estimated_success_rate,
 		diff_success_rate
 	FROM outs_above_average
+	WHERE LOWER(team) = ?
 	GROUP BY player_id, date
 	ORDER BY player_id, date;`, teamName)
 	if err != nil {
