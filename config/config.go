@@ -30,17 +30,28 @@ func NewConfig() *Config {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Open the SQLite database
-	db, err := sql.Open("sqlite3", dbPath)
+	downloadDatabase := os.Getenv("DOWNLOAD_DATABASE")
+	if downloadDatabase == "" {
+		downloadDatabase = "false"
+	}
+	downloadDatabaseBool, err := strconv.ParseBool(downloadDatabase)
+	if err != nil {
+		log.Fatal(err)
+	}
+	uploadDatabase := os.Getenv("UPLOAD_DATABASE")
+	if uploadDatabase == "" {
+		uploadDatabase = "false"
+	}
+	uploadDatabaseBool, err := strconv.ParseBool(uploadDatabase)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return &Config{
-		DB:               db,
+		DB:               &sql.DB{},
 		DatabasePath:     dbPath,
-		DownloadDatabase: true,
+		DownloadDatabase: downloadDatabaseBool,
 		RefreshRate:      refreshRateInt,
-		UploadDatabase:   false,
+		UploadDatabase:   uploadDatabaseBool,
 	}
 }

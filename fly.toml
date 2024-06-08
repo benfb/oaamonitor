@@ -7,6 +7,8 @@ primary_region = 'bos'
 
 [env]
   DATABASE_PATH = '/data/oaamonitor.db'
+  DOWNLOAD_DATABASE = 'true'
+  UPLOAD_DATABASE = 'true'
   PORT = '8080'
 
 [[mounts]]

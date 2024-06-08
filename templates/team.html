@@ -38,6 +38,10 @@
             };
         });
 
+        if (isDarkMode) {
+            Chart.defaults.color = '#ffffff';
+        }
+
         const chart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -56,32 +60,16 @@
                                 useUtc: false
                             }
                         },
-                        ticks: {
-                          color: isDarkMode ? '#ffffff' : '#000000'
-                        },
                         grid: {
-                            color: isDarkMode ? '#323232' : '#000000',
-                            borderColor: isDarkMode ? '#323232' : '#000000'
+                            color: isDarkMode ? '#323232' : '#E5E5E5',
                         },
                     },
                     y: {
-                        beginAtZero: true,
                         ticks: {
-                            callback: function(value, index, values) {
-                                return value;
-                            },
-                            color: isDarkMode ? '#ffffff' : '#000000'
+                            stepSize: 1,
                         },
                         grid: {
-                            color: isDarkMode ? '#323232' : '#000000',
-                            borderColor: isDarkMode ? '#323232' : '#000000'
-                        }
-                    }
-                },
-                tooltips: {
-                    callbacks: {
-                        label: function(tooltipItem, data) {
-                            return `Date: ${tooltipItem.label}, OAA: ${tooltipItem.raw.y}`;
+                            color: isDarkMode ? '#323232' : '#E5E5E5',
                         }
                     }
                 },
@@ -89,20 +77,13 @@
                   customCanvasBackgroundColor: {
                     color: isDarkMode? '#181818' : 'white',
                   },
-                  legend: {
-                    labels: {
-                    color: isDarkMode ? '#ffffff' : '#000000',
-                    fontColor: isDarkMode ? '#ffffff' : '#000000'
-                  },
                   title: {
                     display: true,
                     text: '{{ .TeamName }} OAA Over Time',
-                    color: isDarkMode ? '#ffffff' : '#000000',
                     font: {
                         size: 20
                     }
                   }
-                }
                 }
             },
             plugins: [plugin]
