@@ -39,7 +39,7 @@ func NewConfig() *Config {
 	return &Config{
 		DB:               db,
 		DatabasePath:     dbPath,
-		DownloadDatabase: false,
+		DownloadDatabase: true,
 		RefreshRate:      refreshRateInt,
 		UploadDatabase:   false,
 	}
