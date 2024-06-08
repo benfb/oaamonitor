@@ -21,8 +21,6 @@
         const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
         const players = [...new Set(teamStats.map(stat => stat.name))];
-        console.log("Players:", players);  // Add this line to debug the players
-        console.log("Team Stats:", teamStats);  // Add this line to debug the team stats
         const datasets = players.map(player => {
             const playerStats = teamStats.filter(stat => stat.name === player);
             return {

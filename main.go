@@ -108,7 +108,7 @@ func handleIndexPage(w http.ResponseWriter, r *http.Request) {
 		Players []models.Player
 		Teams   []string
 	}{
-		Title:   "Baseball Stats",
+		Title:   "Outs Above Average Monitor",
 		Players: players,
 		Teams:   teams,
 	}
