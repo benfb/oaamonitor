@@ -143,6 +143,88 @@ body {
     color: var(--text-color);
 }
 
+nav {
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 0;
+}
+
+nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+}
+
+nav ul li {
+    position: relative;
+    margin-right: 20px;
+}
+
+nav ul li a {
+    text-decoration: none;
+    color: var(--text-color);
+    padding: 10px 15px;
+    transition: background-color 0.3s;
+}
+
+nav ul li a:hover {
+    background-color: var(--hover-bg-color);
+    border-radius: 4px;
+}
+
+/* Dropdown menu styling */
+nav ul li.dropdown {
+    position: relative;
+}
+
+nav ul li .dropbtn {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    padding: 10px 15px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+nav ul li .dropbtn:hover {
+    background-color: var(--hover-bg-color);
+    border-radius: 4px;
+}
+
+nav ul li .dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: var(--bg-color);
+    min-width: 160px;
+    box-shadow: 0 8px 16px var(--box-shadow-color);
+    z-index: 1;
+}
+
+nav ul li .dropdown-content li {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+nav ul li .dropdown-content li:last-child {
+    border-bottom: none;
+}
+
+nav ul li .dropdown-content li a {
+    color: var(--text-color);
+    text-decoration: none;
+    display: block;
+}
+
+nav ul li .dropdown-content li a:hover {
+    background-color: var(--hover-bg-color);
+}
+
+nav ul li:hover .dropdown-content {
+    display: block;
+}
+
 .search-result-item {
     padding: 10px 20px;
     cursor: pointer;
@@ -173,10 +255,10 @@ body {
     background: var(--bg-color);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    /* box-shadow: 0 4px 6px var(--box-shadow-color); */
+    box-shadow: 0 4px 6px var(--box-shadow-color);
     z-index: 1000;
     margin-top: 5px;
-    left: 16px; /* Align with input */
+    left: 0;
 }
 
 #nav-player-search {
