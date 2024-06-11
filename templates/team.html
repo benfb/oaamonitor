@@ -83,7 +83,6 @@
                 },
                 legend: {
                     onClick: (e, legendItem, legend) => {
-                        console.log(legendItem);
                         window.open('/player/' + teamStats.filter(stat => stat.name === legendItem.text)[0].player_id, '_blank')
                     },
                 },

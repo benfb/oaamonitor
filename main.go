@@ -26,13 +26,6 @@ var db *sql.DB
 func runRepeatedly(fn func(), interval time.Duration) {
 	go func() {
 		// fn() // Run once before timer takes effect
-		// next10AM := time.Date(time.Now().UTC().Year(), time.Now().UTC().Month(), time.Now().UTC().Day(), 10, 0, 0, 0, time.UTC)
-		// if next10AM.Before(time.Now().UTC()) {
-		// 	next10AM = next10AM.AddDate(0, 0, 1)
-		// }
-		// durationUntilNext10AM := next10AM.Sub(time.Now().UTC())
-		// fmt.Println("Sleeping for ", durationUntilNext10AM)
-		// time.Sleep(durationUntilNext10AM)
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for range ticker.C {
@@ -40,6 +33,24 @@ func runRepeatedly(fn func(), interval time.Duration) {
 			fn()
 		}
 	}()
+}
+
+func handleSearch(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("query")
+	var results []models.Player
+	players, err := models.FetchPlayers(db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, player := range players {
+		if strings.Contains(strings.ToLower(player.Name), strings.ToLower(query)) {
+			results = append(results, player)
+		}
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"results": results,
+	})
 }
 
 func handlePlayerPage(w http.ResponseWriter, r *http.Request) {
@@ -144,6 +155,7 @@ func main() {
 	mux.HandleFunc("/", handleIndexPage)
 	mux.HandleFunc("GET /player/{id}", handlePlayerPage)
 	mux.HandleFunc("GET /team/{id}", handleTeamPage)
+	mux.HandleFunc("GET /search", handleSearch)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	// Start the server

@@ -7,30 +7,5 @@
     {{ end }}
 </ul>
 
-<h2>Players</h2>
-<input type="text" id="playerSearch" placeholder="Search for a player..." oninput="filterPlayers()">
-<ul id="playerList">
-    {{ range .Players }}
-    <li><a href="/player/{{ .ID }}">{{ .Name }}</a></li>
-    {{ end }}
-</ul>
-<script>
-    function filterPlayers() {
-        const input = document.getElementById('playerSearch');
-        const filter = input.value.toLowerCase();
-        const ul = document.getElementById('playerList');
-        const li = ul.getElementsByTagName('li');
-
-        for (let i = 0; i < li.length; i++) {
-            const a = li[i].getElementsByTagName('a')[0];
-            const txtValue = a.textContent || a.innerText;
-            if (txtValue.toLowerCase().indexOf(filter) > -1) {
-                li[i].style.display = "";
-            } else {
-                li[i].style.display = "none";
-            }
-        }
-    }
-</script>
 {{ end }}
 {{ template "footer" . }}
