@@ -67,14 +67,22 @@ func handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	teams, err := models.FetchTeams(db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	data := struct {
 		Title       string
 		PlayerName  string
 		PlayerStats []models.Stat
+		Teams       []string
 	}{
 		Title:       fmt.Sprintf("%s Outs Above Average", playerName),
 		PlayerName:  playerName,
 		PlayerStats: playerStats,
+		Teams:       teams,
 	}
 
 	if err := renderTemplate(w, "player.html", data); err != nil {
@@ -92,14 +100,22 @@ func handleTeamPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	teams, err := models.FetchTeams(db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	data := struct {
 		Title     string
 		TeamName  string
 		TeamStats []models.Stat
+		Teams     []string
 	}{
 		Title:     fmt.Sprintf("%s Outs Above Average", capitalizedTeamName),
 		TeamName:  capitalizedTeamName,
 		TeamStats: teamStats,
+		Teams:     teams,
 	}
 	if err := renderTemplate(w, "team.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -120,14 +136,22 @@ func handleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	playerDifferences, err := models.FetchPlayerDifferences(db, 100)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	data := struct {
-		Title   string
-		Players []models.Player
-		Teams   []string
+		Title             string
+		Players           []models.Player
+		Teams             []string
+		PlayerDifferences []models.PlayerDifference
 	}{
-		Title:   "Outs Above Average Monitor",
-		Players: players,
-		Teams:   teams,
+		Title:             "Outs Above Average Monitor",
+		Players:           players,
+		Teams:             teams,
+		PlayerDifferences: playerDifferences,
 	}
 
 	if err := renderTemplate(w, "index.html", data); err != nil {
@@ -188,7 +212,10 @@ func renderTemplate(w http.ResponseWriter, templatePath string, data interface{}
 		return err
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	tmpl.ExecuteTemplate(w, "header", data)
+	err = tmpl.ExecuteTemplate(w, "header", data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 	tmpl.ExecuteTemplate(w, "content", data)
 	tmpl.ExecuteTemplate(w, "footer", data)
 	return nil

@@ -20,6 +20,15 @@
     <nav>
         <ul>
             <li><a href="/">Outs Above Average Monitor</a></li>
+            <li class="dropdown">
+                Teams
+                <span class="arrow"></span>
+                <ul class="dropdown-content">
+                    {{ range .Teams }}
+                    <li><a href="/team/{{ . | urlquery }}">{{ . | Title }}</a></li>
+                    {{ end }}
+                </ul>
+            </li>
             <li>
                 <input type="text" id="nav-player-search" placeholder="Search players..." oninput="liveSearch()">
                 <div id="search-results" style="display:none;"></div>

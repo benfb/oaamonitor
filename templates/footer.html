@@ -19,6 +19,14 @@
                 .then(data => {
                     const resultsDiv = document.getElementById('search-results');
                     resultsDiv.style.display = 'block';
+
+                    // Hide resultsDiv when clicking outside of it
+                    document.addEventListener('click', function(event) {
+                        const target = event.target;
+                        if (!resultsDiv.contains(target)) {
+                            resultsDiv.style.display = 'none';
+                        }
+                    });
                     resultsDiv.innerHTML = ''; // Clear previous results
 
                     data.results.forEach((player, index) => {

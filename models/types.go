@@ -20,6 +20,15 @@ type Stat struct {
 	DiffSuccessRate      float64 `json:"diff_success_rate"`
 }
 
+type PlayerDifference struct {
+	PlayerID    int    `json:"player_id"`
+	Name        string `json:"name"`
+	Team        string `json:"team"`
+	CurrentOAA  int    `json:"current_oaa"`
+	PreviousOAA int    `json:"previous_oaa"`
+	Difference  int    `json:"difference"`
+}
+
 // FetchTeamStats retrieves statistics for all players in a specific team from the database
 func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 	rows, err := db.Query(`
@@ -142,4 +151,81 @@ func FetchTeams(db *sql.DB) ([]string, error) {
 	}
 
 	return teams, nil
+}
+
+// FetchPlayerDifferences retrieves the players with the biggest differences between the current and previous oaa totals from the database
+func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
+	// Check if there are any differences for any player between the current and previous OAA totals
+	var count int
+	if err := db.QueryRow(`
+	WITH current AS (
+		SELECT player_id, oaa FROM outs_above_average WHERE date = (SELECT MAX(date) FROM outs_above_average)
+	),
+	previous AS (
+		SELECT player_id, oaa FROM outs_above_average WHERE date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
+	)
+	SELECT COUNT(*) FROM current JOIN previous ON current.player_id = previous.player_id WHERE current.oaa != previous.oaa;
+	`).Scan(&count); err != nil {
+		return nil, err
+	}
+	var rows *sql.Rows
+	var err error
+
+	// If there are no differences, fetch the differences between the current and previous OAA totals
+	if count == 0 {
+		rows, err = db.Query(`
+		SELECT 
+			current.player_id,
+			current.full_name,
+			current.team,
+			current.oaa AS current_oaa,
+			previous.oaa AS previous_oaa,
+			current.oaa - previous.oaa AS difference
+		FROM outs_above_average AS current
+		JOIN outs_above_average AS previous
+		ON current.player_id = previous.player_id
+		WHERE current.date = date((SELECT MAX(date) FROM outs_above_average), '-1 day')
+		AND previous.date = date((SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average)), '-1 day')
+		AND current.oaa != previous.oaa
+		ORDER BY ABS(difference) DESC
+		LIMIT ?;
+		`, limit)
+	} else {
+		// Otherwise, fetch the differences between the current and previous OAA totals starting from the previous day
+		rows, err = db.Query(`
+		SELECT 
+			current.player_id,
+			current.full_name,
+			current.team,
+			current.oaa AS current_oaa,
+			previous.oaa AS previous_oaa,
+			current.oaa - previous.oaa AS difference
+		FROM outs_above_average AS current
+		JOIN outs_above_average AS previous
+		ON current.player_id = previous.player_id
+		WHERE current.date = (SELECT MAX(date) FROM outs_above_average)
+		AND previous.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
+		AND current.oaa != previous.oaa
+		ORDER BY ABS(difference) DESC
+		LIMIT ?;`, limit)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var differences []PlayerDifference
+	for rows.Next() {
+		var difference PlayerDifference
+		if err := rows.Scan(&difference.PlayerID, &difference.Name, &difference.Team, &difference.CurrentOAA, &difference.PreviousOAA, &difference.Difference); err != nil {
+			return nil, err
+		}
+		differences = append(differences, difference)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return differences, nil
 }
