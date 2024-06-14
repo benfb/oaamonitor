@@ -21,7 +21,7 @@
                     resultsDiv.style.display = 'block';
 
                     // Hide resultsDiv when clicking outside of it
-                    document.addEventListener('click', function (event) {
+                    document.addEventListener('click', function(event) {
                         const target = event.target;
                         if (!resultsDiv.contains(target)) {
                             resultsDiv.style.display = 'none';
@@ -84,13 +84,13 @@
 
         window.liveSearch = liveSearch;
 
-        document.addEventListener('DOMContentLoaded', function () {
-            var dropdown = document.getElementById('dropdown');
-            dropdown.addEventListener('touchstart', function (e) {
-                e.preventDefault();
-                dropdown.classList.toggle('open');
-            });
+        document.addEventListener('DOMContentLoaded', function() {
+        var dropdown = document.getElementById('dropdown');
+        dropdown.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            dropdown.classList.toggle('open');
         });
+    });
     });
 </script>
 </body>
