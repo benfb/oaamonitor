@@ -298,3 +298,36 @@ nav ul li:hover .dropdown-content {
     margin: 0 !important;
     padding: 0 !important;
 } */
+
+/* Mobile styles */
+@media (max-width: 600px) {
+    nav ul {
+        flex-direction: column;
+    }
+
+    .dropdown-content {
+        position: static;
+    }
+}
+
+/* Tablet styles */
+@media (min-width: 601px) and (max-width: 1024px) {
+    nav ul {
+        flex-direction: row;
+    }
+
+    .dropdown-content {
+        position: absolute;
+    }
+}
+
+/* Desktop styles */
+@media (min-width: 1025px) {
+    nav ul {
+        flex-direction: row;
+    }
+
+    .dropdown-content {
+        position: absolute;
+    }
+}

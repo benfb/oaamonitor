@@ -83,6 +83,14 @@
         }
 
         window.liveSearch = liveSearch;
+
+        document.addEventListener('DOMContentLoaded', function() {
+        var dropdown = document.getElementById('dropdown');
+        dropdown.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            dropdown.classList.toggle('open');
+        });
+    });
     });
 </script>
 </body>
