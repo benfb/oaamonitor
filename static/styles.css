@@ -281,9 +281,19 @@ nav ul li:hover .dropdown-content {
 
 /* Media Queries for Responsive Design */
 @media (max-width: 768px) {
+    body {
+        padding: 1.5em;
+    }
+
+    header,
+    footer {
+        padding: 1.5em;
+    }
+
     nav ul {
         flex-direction: column;
         align-items: flex-start;
+        text-align: center;
     }
 
     nav ul li {
@@ -293,7 +303,6 @@ nav ul li:hover .dropdown-content {
 
     nav ul li a {
         width: 100%;
-        padding: 10px 0;
     }
 
     nav ul li .dropdown-content {
@@ -307,28 +316,32 @@ nav ul li:hover .dropdown-content {
         padding: 10px 15px;
     }
 
+    .nav-team-link {
+        padding: 0px;
+    }
+
     #nav-player-search {
         width: 100%;
-        padding: 10px 0;
+        /* padding: 10px 0; */
     }
 }
 
 @media (max-width: 480px) {
     body {
-        padding: 0.5em;
+        padding: 1.5em;
     }
 
     header,
     footer {
-        padding: 0.5em;
+        padding: 1.5em;
     }
 
     h1,
     h2 {
-        margin: 0.5em 0;
+        margin: 1em 0;
     }
 
-    nav ul li a {
+    nav ul li {
         padding: 10px 0;
     }
 
@@ -340,8 +353,33 @@ nav ul li:hover .dropdown-content {
         padding: 10px;
     }
 
+    .nav-team-link {
+        padding: 0px;
+    }
+
     #nav-player-search {
         width: 100%;
-        padding: 10px 0;
+        /* padding: 10px 0; */
     }
+}
+
+/* Table column spacing */
+#playerDifferences {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+#playerDifferences th, 
+#playerDifferences td {
+    padding: 10px 15px;
+}
+
+#playerDifferences th {
+    text-align: left;
+    border-bottom: 2px solid var(--border-color);
+}
+
+#playerDifferences td {
+    border-bottom: 1px solid var(--border-color);
 }

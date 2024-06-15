@@ -25,7 +25,7 @@
                 <span class="arrow"></span>
                 <ul class="dropdown-content">
                     {{ range .Teams }}
-                    <li><a href="/team/{{ . | urlquery }}">{{ . | Title }}</a></li>
+                    <li class="nav-team-link"><a href="/team/{{ . | urlquery }}">{{ . | Title }}</a></li>
                     {{ end }}
                 </ul>
             </li>
@@ -39,10 +39,13 @@
         document.addEventListener('DOMContentLoaded', function () {
             const dropdown = document.querySelector('.dropdown');
             const dropdownContent = document.querySelector('.dropdown .dropdown-content');
+            const arrow = document.querySelector('.dropdown .arrow');
 
             dropdown.addEventListener('click', function (event) {
                 event.stopPropagation();
                 dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
+                dropdown.classList.toggle('open');
+                arrow.classList.toggle('arrow-rotated');
             });
 
             document.addEventListener('click', function () {

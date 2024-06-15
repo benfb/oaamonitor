@@ -3,7 +3,7 @@
 <br>
 <p>Outs Above Average Monitor is a website which displays the daily <a href="https://www.mlb.com/glossary/statcast/outs-above-average">Outs Above Average</a> total for MLB players. This data is <a href="https://baseballsavant.mlb.com/leaderboard/outs_above_average">viewable on Baseball Savant for each player</a>, but this website makes it easier to view the daily changes for each player. The data is entirely from Baseball Savant. I don't think viewing defensive metrics on a daily basis is actually useful, but it's fun.</p>
 <h2>Daily trends</h2>
-<table>
+<table id="playerDifferences">
     <thead>
         <tr>
             <th>Player</th>
@@ -13,7 +13,7 @@
     <tbody>
         {{ range .PlayerDifferences }}
         <tr>
-            <td>{{ .Name }}</td>
+            <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
             <td>{{ .Difference }}</td>
         </tr>
         {{ end }}
