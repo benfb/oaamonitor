@@ -35,4 +35,19 @@
             </li>
         </ul>
     </nav>
-    {{ end }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const dropdown = document.querySelector('.dropdown');
+            const dropdownContent = document.querySelector('.dropdown .dropdown-content');
+
+            dropdown.addEventListener('click', function (event) {
+                event.stopPropagation();
+                dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.addEventListener('click', function () {
+                dropdownContent.style.display = 'none';
+            });
+        });
+    </script>
+{{ end }}
