@@ -132,7 +132,7 @@ func FetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, error) {
 
 // FetchTeams retrieves distinct team names from the database
 func FetchTeams(db *sql.DB) ([]string, error) {
-	rows, err := db.Query("SELECT DISTINCT LOWER(team) FROM outs_above_average ORDER BY team")
+	rows, err := db.Query("SELECT DISTINCT team FROM outs_above_average ORDER BY team")
 	if err != nil {
 		return nil, err
 	}

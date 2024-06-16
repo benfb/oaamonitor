@@ -25,7 +25,7 @@
                 <span class="arrow"></span>
                 <ul class="dropdown-content">
                     {{ range .Teams }}
-                    <li class="nav-team-link"><a href="/team/{{ . | urlquery }}">{{ . | Title }}</a></li>
+                    <li class="nav-team-link"><a href="/team/{{ . | urlquery }}">{{ . }}</a></li>
                     {{ end }}
                 </ul>
             </li>

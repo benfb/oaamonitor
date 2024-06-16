@@ -17,8 +17,6 @@ import (
 	"github.com/benfb/oaamonitor/refresher"
 	"github.com/benfb/oaamonitor/storage"
 	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 var db *sql.DB
@@ -195,11 +193,7 @@ func main() {
 
 func renderTemplate(w http.ResponseWriter, templatePath string, data interface{}) error {
 	tmplPath := filepath.Join("templates", templatePath)
-	tmpl, err := template.New(tmplPath).Funcs(template.FuncMap{
-		"Title": func(s string) string {
-			return cases.Title(language.English, cases.NoLower).String(s)
-		},
-	}).ParseFiles(tmplPath, "templates/header.html", "templates/footer.html")
+	tmpl, err := template.New(tmplPath).ParseFiles(tmplPath, "templates/header.html", "templates/footer.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return err
