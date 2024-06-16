@@ -312,15 +312,15 @@ nav ul li:hover .dropdown-content {
     margin: 1em 0;
 }
 
-#playerDifferences th, #playerDifferences td {
+th, td {
     padding: 10px 15px;
 }
 
-#playerDifferences th {
+th {
     text-align: left;
     border-bottom: 2px solid var(--border-color);
 }
 
-#playerDifferences td {
+td {
     border-bottom: 1px solid var(--border-color);
 }

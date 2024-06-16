@@ -2,6 +2,24 @@
 {{ define "content" }}
 <canvas id="teamChart" style="padding: 10px;"></canvas>
 <button id="downloadChart">Download Chart as PNG</button>
+
+<!-- New section for players list and OAA -->
+<div id="playersList" style="border-collapse: collapse; padding: 20px;">
+    <h2>{{ .TeamName }} OAA</h2>
+    <table id="teamPlayersTable">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>OAA</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Rows will be inserted here by JavaScript -->
+        </tbody>
+    </table>
+</div>
+
 <script>
     const plugin = {
         id: 'customCanvasBackgroundColor',
@@ -122,6 +140,76 @@
         plugins: [plugin, ChartDataLabels],
         maintainAspectRatio: false,
     });
+    
+    const teamPlayersTableBody = document.getElementById('teamPlayersTable').querySelector('tbody');
+
+    players.forEach(player => {
+        const playerStats = teamStats.filter(stat => stat.name === player);
+        const currentOAA = playerStats[playerStats.length - 1].oaa;
+        const playerID = playerStats[0].player_id;
+
+        const row = document.createElement('tr');
+        // row.style.borderBottom = '1px solid black';
+
+        const playerNameCell = document.createElement('td');
+        const playerLink = document.createElement('a');
+        playerLink.href = `/player/${playerID}`;
+        playerLink.textContent = player;
+        playerNameCell.appendChild(playerLink);
+        row.appendChild(playerNameCell);
+
+        const currentOAACell = document.createElement('td');
+        currentOAACell.textContent = currentOAA;
+        row.appendChild(currentOAACell);
+
+        const sparklineCell = document.createElement('td');
+        const sparklineCanvas = document.createElement('canvas');
+        sparklineCanvas.width = 100;
+        sparklineCanvas.height = 30;
+        sparklineCell.appendChild(sparklineCanvas);
+        row.appendChild(sparklineCell);
+
+        teamPlayersTableBody.appendChild(row);
+
+        // Draw sparkline
+        new Chart(sparklineCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: playerStats.map(stat => stat.date),
+                datasets: [{
+                    data: playerStats.map(stat => stat.oaa),
+                    fill: true,
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        display: false
+                    }
+                },
+                elements: {
+                    line: {
+                        tension: 0
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        enabled: false
+                    }
+                }
+            }
+        });
+    });
+
     // Function to download the chart as a PNG
     document.getElementById('downloadChart').addEventListener('click', function () {
         const link = document.createElement('a');
