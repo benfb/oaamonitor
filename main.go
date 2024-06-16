@@ -196,13 +196,6 @@ func main() {
 func renderTemplate(w http.ResponseWriter, templatePath string, data interface{}) error {
 	tmplPath := filepath.Join("templates", templatePath)
 	tmpl, err := template.New(tmplPath).Funcs(template.FuncMap{
-		"json": func(v interface{}) (template.JS, error) {
-			a, err := json.Marshal(v)
-			if err != nil {
-				return "", err
-			}
-			return template.JS(a), nil
-		},
 		"Title": func(s string) string {
 			return cases.Title(language.English, cases.NoLower).String(s)
 		},

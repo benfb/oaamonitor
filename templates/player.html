@@ -15,7 +15,7 @@
             ctx.restore();
         }
     };
-    const stats = {{ .PlayerStats | json }};
+    const stats = {{ .PlayerStats }};
     const ctx = document.getElementById('playerChart').getContext('2d');
 
     // Detect dark mode preference

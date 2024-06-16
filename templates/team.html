@@ -32,7 +32,8 @@
             ctx.restore();
         }
     };
-    const teamStats = {{ .TeamStats | json }};
+    const teamStats = {{ .TeamStats }};
+    // console.log(teamStats)
     const ctx = document.getElementById('teamChart').getContext('2d');
 
     // Detect dark mode preference
@@ -41,6 +42,7 @@
     const players = [...new Set(teamStats.map(stat => stat.name))];
     const datasets = players.map(player => {
         const playerStats = teamStats.filter(stat => stat.name === player);
+        // console.log(playerStats)
         return {
             label: player,
             data: playerStats.map(stat => ({
@@ -149,7 +151,6 @@
         const playerID = playerStats[0].player_id;
 
         const row = document.createElement('tr');
-        // row.style.borderBottom = '1px solid black';
 
         const playerNameCell = document.createElement('td');
         const playerLink = document.createElement('a');
