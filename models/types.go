@@ -67,7 +67,7 @@ func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 	return stats, capitalizedTeamName, nil
 }
 
-type SpaklinePoint struct {
+type SparklinePoint struct {
 	Date string
 	OAA  int
 }
@@ -76,23 +76,23 @@ type SpaklinePoint struct {
 func MapStatsByPlayerID(stats []Stat) map[int]struct {
 	Name       string
 	LatestOAA  int
-	OAAHistory []SpaklinePoint
+	OAAHistory []SparklinePoint
 } {
 	statsMap := make(map[int]struct {
 		Name       string
 		LatestOAA  int
-		OAAHistory []SpaklinePoint
+		OAAHistory []SparklinePoint
 	})
 	for _, stat := range stats {
 		if _, ok := statsMap[stat.PlayerID]; !ok {
 			statsMap[stat.PlayerID] = struct {
 				Name       string
 				LatestOAA  int
-				OAAHistory []SpaklinePoint
+				OAAHistory []SparklinePoint
 			}{
 				Name:      stat.Name,
 				LatestOAA: stat.OAA,
-				OAAHistory: []SpaklinePoint{{
+				OAAHistory: []SparklinePoint{{
 					Date: stat.Date,
 					OAA:  stat.OAA,
 				}},
@@ -101,11 +101,11 @@ func MapStatsByPlayerID(stats []Stat) map[int]struct {
 			statsMap[stat.PlayerID] = struct {
 				Name       string
 				LatestOAA  int
-				OAAHistory []SpaklinePoint
+				OAAHistory []SparklinePoint
 			}{
 				Name:       statsMap[stat.PlayerID].Name,
 				LatestOAA:  stat.OAA,
-				OAAHistory: append(statsMap[stat.PlayerID].OAAHistory, SpaklinePoint{stat.Date, stat.OAA}),
+				OAAHistory: append(statsMap[stat.PlayerID].OAAHistory, SparklinePoint{stat.Date, stat.OAA}),
 			}
 		}
 	}
