@@ -67,6 +67,51 @@ func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 	return stats, capitalizedTeamName, nil
 }
 
+type SpaklinePoint struct {
+	Date string
+	OAA  int
+}
+
+// Function which retruns a map of player ID to a struct containing the player's name, the latest OAA value, and a slice of OAA values ordered by date
+func MapStatsByPlayerID(stats []Stat) map[int]struct {
+	Name       string
+	LatestOAA  int
+	OAAHistory []SpaklinePoint
+} {
+	statsMap := make(map[int]struct {
+		Name       string
+		LatestOAA  int
+		OAAHistory []SpaklinePoint
+	})
+	for _, stat := range stats {
+		if _, ok := statsMap[stat.PlayerID]; !ok {
+			statsMap[stat.PlayerID] = struct {
+				Name       string
+				LatestOAA  int
+				OAAHistory []SpaklinePoint
+			}{
+				Name:      stat.Name,
+				LatestOAA: stat.OAA,
+				OAAHistory: []SpaklinePoint{{
+					Date: stat.Date,
+					OAA:  stat.OAA,
+				}},
+			}
+		} else {
+			statsMap[stat.PlayerID] = struct {
+				Name       string
+				LatestOAA  int
+				OAAHistory []SpaklinePoint
+			}{
+				Name:       statsMap[stat.PlayerID].Name,
+				LatestOAA:  stat.OAA,
+				OAAHistory: append(statsMap[stat.PlayerID].OAAHistory, SpaklinePoint{stat.Date, stat.OAA}),
+			}
+		}
+	}
+	return statsMap
+}
+
 // FetchPlayers retrieves distinct player IDs and names from the database in alphabetical order
 func FetchPlayers(db *sql.DB) ([]Player, error) {
 	rows, err := db.Query("SELECT DISTINCT player_id, full_name FROM outs_above_average ORDER BY last_name, first_name DESC")

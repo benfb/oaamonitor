@@ -15,7 +15,15 @@
             </tr>
         </thead>
         <tbody>
-            <!-- Rows will be inserted here by JavaScript -->
+            {{ range $player, $stats := .SparklinesData }}
+            <tr>
+                <td><a href="/player/{{ $player }}">{{ $stats.Name }}</a></td>
+                <td>{{ $stats.LatestOAA }}</td>
+                <td>
+                    <canvas width="100" height="30" id="playerChart{{ $player }}"></canvas>
+                </td>
+            </tr>
+            {{ end }}
         </tbody>
     </table>
 </div>
@@ -33,7 +41,6 @@
         }
     };
     const teamStats = {{ .TeamStats }};
-    // console.log(teamStats)
     const ctx = document.getElementById('teamChart').getContext('2d');
 
     // Detect dark mode preference
@@ -142,48 +149,24 @@
         plugins: [plugin, ChartDataLabels],
         maintainAspectRatio: false,
     });
-    
-    const teamPlayersTableBody = document.getElementById('teamPlayersTable').querySelector('tbody');
 
-    players.forEach(player => {
-        const playerStats = teamStats.filter(stat => stat.name === player);
-        const currentOAA = playerStats[playerStats.length - 1].oaa;
-        const playerID = playerStats[0].player_id;
-
-        const row = document.createElement('tr');
-
-        const playerNameCell = document.createElement('td');
-        const playerLink = document.createElement('a');
-        playerLink.href = `/player/${playerID}`;
-        playerLink.textContent = player;
-        playerNameCell.appendChild(playerLink);
-        row.appendChild(playerNameCell);
-
-        const currentOAACell = document.createElement('td');
-        currentOAACell.textContent = currentOAA;
-        row.appendChild(currentOAACell);
-
-        const sparklineCell = document.createElement('td');
-        const sparklineCanvas = document.createElement('canvas');
-        sparklineCanvas.width = 100;
-        sparklineCanvas.height = 30;
-        sparklineCell.appendChild(sparklineCanvas);
-        row.appendChild(sparklineCell);
-
-        teamPlayersTableBody.appendChild(row);
-
-        // Draw sparkline
-        new Chart(sparklineCanvas.getContext('2d'), {
+    // Create sparklines for each player
+    const sparklinesData = {{ .SparklinesData }}
+    const sparklinesDataMap = new Map(Object.entries(sparklinesData));
+    sparklinesDataMap.forEach((stats, player) => {
+        const playerChart = new Chart(document.getElementById('playerChart' + player).getContext('2d'), {
             type: 'line',
             data: {
-                labels: playerStats.map(stat => stat.date),
-                datasets: [{
-                    data: playerStats.map(stat => stat.oaa),
-                    fill: true,
-                    borderWidth: 1,
-                    pointRadius: 0,
-                    pointHoverRadius: 0,
-                }]
+                labels: stats.OAAHistory.map((_, i) => i),
+                datasets: [
+                    {
+                        data: stats.OAAHistory.map(oaa => oaa.toFixed(2)),
+                        fill: true,
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                    }
+                ]
             },
             options: {
                 scales: {

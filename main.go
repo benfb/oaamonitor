@@ -104,18 +104,27 @@ func handleTeamPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	playerStats := models.MapStatsByPlayerID(teamStats)
+
 	data := struct {
-		Title     string
-		TeamName  string
-		TeamStats []models.Stat
-		Teams     []string
+		Title          string
+		TeamName       string
+		TeamStats      []models.Stat
+		Teams          []string
+		SparklinesData map[int]struct {
+			Name       string
+			LatestOAA  int
+			OAAHistory []models.SparklinePoint
+		}
 	}{
-		Title:     fmt.Sprintf("%s Outs Above Average", capitalizedTeamName),
-		TeamName:  capitalizedTeamName,
-		TeamStats: teamStats,
-		Teams:     teams,
+		Title:          fmt.Sprintf("%s Outs Above Average", capitalizedTeamName),
+		TeamName:       capitalizedTeamName,
+		TeamStats:      teamStats,
+		Teams:          teams,
+		SparklinesData: playerStats,
 	}
 	if err := renderTemplate(w, "team.html", data); err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -201,10 +210,19 @@ func renderTemplate(w http.ResponseWriter, templatePath string, data interface{}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err = tmpl.ExecuteTemplate(w, "header", data)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	tmpl.ExecuteTemplate(w, "content", data)
-	tmpl.ExecuteTemplate(w, "footer", data)
+	err = tmpl.ExecuteTemplate(w, "content", data)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	err = tmpl.ExecuteTemplate(w, "footer", data)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 	return nil
 }
 
