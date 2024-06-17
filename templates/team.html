@@ -157,10 +157,10 @@
         const playerChart = new Chart(document.getElementById('playerChart' + player).getContext('2d'), {
             type: 'line',
             data: {
-                labels: stats.OAAHistory.map((_, i) => i),
+                labels: stats.OAAHistory.map(obj => obj.Date),
                 datasets: [
                     {
-                        data: stats.OAAHistory.map(oaa => oaa.toFixed(2)),
+                        data: stats.OAAHistory.map(obj => obj.OAA),
                         fill: true,
                         borderWidth: 1,
                         pointRadius: 0,
