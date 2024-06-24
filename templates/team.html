@@ -1,5 +1,4 @@
-{{ template "header.html" . }}
-{{ define "content" }}
+{{ template "header" . }}
 <canvas id="teamChart" style="padding: 10px;"></canvas>
 <button id="downloadChart">Download Chart as PNG</button>
 
@@ -202,5 +201,4 @@
         link.click();
     });
 </script>
-{{ end }}
-{{ template "footer.html" . }}
+{{ template "footer" . }}

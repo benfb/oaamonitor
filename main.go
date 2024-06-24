@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/benfb/oaamonitor/config"
@@ -19,24 +23,62 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var db *sql.DB
-
-func runRepeatedly(fn func(), interval time.Duration) {
-	go func() {
-		// fn() // Run once before timer takes effect
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for range ticker.C {
-			log.Println("Refreshing data...")
-			fn()
-		}
-	}()
+type Server struct {
+	db     *sql.DB
+	router *http.ServeMux
+	tmpl   *template.Template
 }
 
-func handleSearch(w http.ResponseWriter, r *http.Request) {
+func NewServer(db *sql.DB) (*Server, error) {
+	s := &Server{
+		db:     db,
+		router: http.NewServeMux(),
+	}
+
+	// Parse all templates
+	templates, err := filepath.Glob("templates/*.html")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find templates: %v", err)
+	}
+
+	s.tmpl, err = template.ParseFiles(templates...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse templates: %v", err)
+	}
+
+	s.routes()
+	return s, nil
+}
+
+func (s *Server) routes() {
+	s.router.HandleFunc("/", s.handleIndexPage)
+	s.router.HandleFunc("GET /player/{id}", s.handlePlayerPage)
+	s.router.HandleFunc("GET /team/{id}", s.handleTeamPage)
+	s.router.HandleFunc("GET /search", s.handleSearch)
+	s.router.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.router.ServeHTTP(w, r)
+}
+
+func (s *Server) renderTemplate(w http.ResponseWriter, tmplName string, data interface{}) {
+	// Set the content type
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Execute the template
+	err := s.tmpl.ExecuteTemplate(w, tmplName, data)
+	if err != nil {
+		log.Printf("Error rendering template %s: %v", tmplName, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("query")
 	var results []models.Player
-	players, err := models.FetchPlayers(db)
+	players, err := models.FetchPlayers(s.db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -51,7 +93,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handlePlayerPage(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 	playerID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		log.Println(playerID)
@@ -59,13 +101,13 @@ func handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	playerStats, playerName, err := models.FetchPlayerStats(db, playerID)
+	playerStats, playerName, err := models.FetchPlayerStats(s.db, playerID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	teams, err := models.FetchTeams(db)
+	teams, err := models.FetchTeams(s.db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -83,22 +125,19 @@ func handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 		Teams:       teams,
 	}
 
-	if err := renderTemplate(w, "player.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	s.renderTemplate(w, "player.html", data)
 }
 
-func handleTeamPage(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 	teamName := strings.ToLower(r.PathValue("id"))
 	teamName = normalizeTeamName(teamName)
-	teamStats, capitalizedTeamName, err := models.FetchTeamStats(db, teamName)
+	teamStats, capitalizedTeamName, err := models.FetchTeamStats(s.db, teamName)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	teams, err := models.FetchTeams(db)
+	teams, err := models.FetchTeams(s.db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -123,27 +162,23 @@ func handleTeamPage(w http.ResponseWriter, r *http.Request) {
 		Teams:          teams,
 		SparklinesData: playerStats,
 	}
-	if err := renderTemplate(w, "team.html", data); err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	s.renderTemplate(w, "team.html", data)
 }
 
-func handleIndexPage(w http.ResponseWriter, r *http.Request) {
-	players, err := models.FetchPlayers(db)
+func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
+	players, err := models.FetchPlayers(s.db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	teams, err := models.FetchTeams(db)
+	teams, err := models.FetchTeams(s.db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	playerDifferences, err := models.FetchPlayerDifferences(db, 100)
+	playerDifferences, err := models.FetchPlayerDifferences(s.db, 100)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -161,69 +196,72 @@ func handleIndexPage(w http.ResponseWriter, r *http.Request) {
 		PlayerDifferences: playerDifferences,
 	}
 
-	if err := renderTemplate(w, "index.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	s.renderTemplate(w, "index.html", data)
 }
 
 func main() {
 	cfg := config.NewConfig()
 	if cfg.DownloadDatabase {
 		log.Println("Downloading database from Fly Storage")
-		storage.DownloadDatabase(cfg.DatabasePath)
+		if err := storage.DownloadDatabase(cfg.DatabasePath); err != nil {
+			log.Fatalf("Failed to download database: %v", err)
+		}
 	}
-	runRepeatedly(refresher.GetLatestOAA, time.Duration(cfg.RefreshRate)*time.Second)
-	// Open the SQLite database
-	var err error
-	db, err = sql.Open("sqlite3", cfg.DatabasePath)
+
+	db, err := sql.Open("sqlite3", cfg.DatabasePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to open database: %v", err)
 	}
 	defer db.Close()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", handleIndexPage)
-	mux.HandleFunc("GET /player/{id}", handlePlayerPage)
-	mux.HandleFunc("GET /team/{id}", handleTeamPage)
-	mux.HandleFunc("GET /search", handleSearch)
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	server, err := NewServer(db)
+	if err != nil {
+		log.Fatalf("Failed to create server: %v", err)
+	}
 
-	// Start the server
-	log.Println("Starting server on :8080")
-	server := &http.Server{
+	srv := &http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: server,
 	}
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal(err)
-	}
-}
 
-func renderTemplate(w http.ResponseWriter, templatePath string, data interface{}) error {
-	tmplPath := filepath.Join("templates", templatePath)
-	tmpl, err := template.New(tmplPath).ParseFiles(tmplPath, "templates/header.html", "templates/footer.html")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return err
+	// Start the server in a goroutine
+	go func() {
+		log.Println("Starting server on :8080")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe(): %v", err)
+		}
+	}()
+
+	// Set up graceful shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+
+	// Start periodic refresh in a goroutine
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		go refresher.RunPeriodically(ctx, cfg, time.Duration(cfg.RefreshRate)*time.Second)
+	}()
+
+	<-stop
+	log.Println("Shutting down server...")
+
+	// Cancel the refresh goroutine
+	cancel()
+
+	// Shut down the server
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = tmpl.ExecuteTemplate(w, "header", data)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-	err = tmpl.ExecuteTemplate(w, "content", data)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-	err = tmpl.ExecuteTemplate(w, "footer", data)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-	return nil
+
+	// Wait for the refresh goroutine to finish
+	wg.Wait()
+
+	log.Println("Server exited properly")
 }
 
 // normalizeTeamName normalizes team names to a standard format
