@@ -1,7 +1,8 @@
 {{ template "header" . }}
 
 <canvas id="playerChart"></canvas>
-<button id="downloadChart">Download Chart as PNG</button>
+<button id="downloadChart" class="btn">Download Chart as PNG</button>
+<a id="savantLink" class="btn" href="https://baseballsavant.mlb.com/visuals/statcast-infield-defense?type=Fielder&playerId={{ .PlayerID }}&startYear=2024&endYear=2024&result=&direction=&normalize=undefined&roles=&esrGT=0&esrLT=1&evGT=0&evLT=125&distGT=0&distLT=200&batside=&viz=intercept_fielder_starting_position_">View on Baseball Savant</a>
 
 <script>
     var playerStats = {{ .PlayerStats }};

@@ -201,6 +201,52 @@ func FetchTeams(db *sql.DB) ([]string, error) {
 	return teams, nil
 }
 
+// GetTeamAbbreviation returns the MLB abbreviation for a given team name
+func GetTeamAbbreviation(teamName string) string {
+	abbreviations := map[string]string{
+		"Angels":    "LAA",
+		"Astros":    "HOU",
+		"Athletics": "OAK",
+		"Blue Jays": "TOR",
+		"Braves":    "ATL",
+		"Brewers":   "MIL",
+		"Cardinals": "STL",
+		"Cubs":      "CHC",
+		"D-backs":   "ARI",
+		"Dodgers":   "LAD",
+		"Giants":    "SF",
+		"Guardians": "CLE",
+		"Mariners":  "SEA",
+		"Marlins":   "MIA",
+		"Mets":      "NYM",
+		"Nationals": "WSH",
+		"Orioles":   "BAL",
+		"Padres":    "SD",
+		"Phillies":  "PHI",
+		"Pirates":   "PIT",
+		"Rangers":   "TEX",
+		"Rays":      "TB",
+		"Red Sox":   "BOS",
+		"Reds":      "CIN",
+		"Rockies":   "COL",
+		"Royals":    "KC",
+		"Tigers":    "DET",
+		"Twins":     "MIN",
+		"White Sox": "CWS",
+		"Yankees":   "NYY",
+	}
+
+	if abbr, ok := abbreviations[teamName]; ok {
+		return abbr
+	}
+	return ""
+}
+
+// GetCurrentYear returns the current year as a string
+func GetCurrentYear() string {
+	return time.Now().Format("2006")
+}
+
 // FetchPlayerDifferences retrieves the players with the biggest differences between the current and previous oaa totals from the database
 func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 	// Check if there are any differences for any player between the current and previous OAA totals

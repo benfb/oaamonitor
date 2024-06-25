@@ -115,11 +115,13 @@ func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 
 	data := struct {
 		Title       string
+		PlayerID    int
 		PlayerName  string
 		PlayerStats []models.Stat
 		Teams       []string
 	}{
 		Title:       fmt.Sprintf("%s Outs Above Average", playerName),
+		PlayerID:    playerID,
 		PlayerName:  playerName,
 		PlayerStats: playerStats,
 		Teams:       teams,
@@ -155,12 +157,16 @@ func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 			LatestOAA  int
 			OAAHistory []models.SparklinePoint
 		}
+		CurrentYear      string
+		TeamAbbreviation string
 	}{
-		Title:          fmt.Sprintf("%s Outs Above Average", capitalizedTeamName),
-		TeamName:       capitalizedTeamName,
-		TeamStats:      teamStats,
-		Teams:          teams,
-		SparklinesData: playerStats,
+		Title:            fmt.Sprintf("%s Outs Above Average", capitalizedTeamName),
+		TeamName:         capitalizedTeamName,
+		TeamStats:        teamStats,
+		Teams:            teams,
+		SparklinesData:   playerStats,
+		CurrentYear:      models.GetCurrentYear(),
+		TeamAbbreviation: models.GetTeamAbbreviation(capitalizedTeamName),
 	}
 	s.renderTemplate(w, "team.html", data)
 }
