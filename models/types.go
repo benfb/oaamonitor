@@ -1,6 +1,9 @@
 package models
 
-import "database/sql"
+import (
+	"database/sql"
+	"time"
+)
 
 // Player represents a player with their ID and name
 type Player struct {
@@ -10,14 +13,14 @@ type Player struct {
 
 // Stat represents a row in the outs_above_average table
 type Stat struct {
-	PlayerID             int     `json:"player_id"`
-	Name                 string  `json:"name"`
-	Team                 string  `json:"team"`
-	OAA                  int     `json:"oaa"`
-	Date                 string  `json:"date"`
-	ActualSuccessRate    float64 `json:"actual_success_rate"`
-	EstimatedSuccessRate float64 `json:"estimated_success_rate"`
-	DiffSuccessRate      float64 `json:"diff_success_rate"`
+	PlayerID             int       `json:"player_id"`
+	Name                 string    `json:"name"`
+	Team                 string    `json:"team"`
+	OAA                  int       `json:"oaa"`
+	Date                 time.Time `json:"date"`
+	ActualSuccessRate    float64   `json:"actual_success_rate"`
+	EstimatedSuccessRate float64   `json:"estimated_success_rate"`
+	DiffSuccessRate      float64   `json:"diff_success_rate"`
 }
 
 type PlayerDifference struct {
@@ -68,7 +71,7 @@ func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 }
 
 type SparklinePoint struct {
-	Date string
+	Date time.Time
 	OAA  int
 }
 
