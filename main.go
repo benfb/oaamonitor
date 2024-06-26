@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -27,12 +28,14 @@ type Server struct {
 	db     *sql.DB
 	router *http.ServeMux
 	tmpl   *template.Template
+	config *config.Config
 }
 
-func NewServer(db *sql.DB) (*Server, error) {
+func NewServer(db *sql.DB, cfg *config.Config) (*Server, error) {
 	s := &Server{
 		db:     db,
 		router: http.NewServeMux(),
+		config: cfg,
 	}
 
 	// Parse all templates
@@ -55,6 +58,7 @@ func (s *Server) routes() {
 	s.router.HandleFunc("GET /player/{id}", s.handlePlayerPage)
 	s.router.HandleFunc("GET /team/{id}", s.handleTeamPage)
 	s.router.HandleFunc("GET /search", s.handleSearch)
+	s.router.HandleFunc("GET /download", s.handleDatabaseDownload)
 	s.router.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 }
 
@@ -171,6 +175,25 @@ func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 	s.renderTemplate(w, "team.html", data)
 }
 
+func (s *Server) handleDatabaseDownload(w http.ResponseWriter, r *http.Request) {
+	dbPath := s.config.DatabasePath
+	dbFile, err := os.Open(dbPath)
+	if err != nil {
+		http.Error(w, "Unable to open database file", http.StatusInternalServerError)
+		return
+	}
+	defer dbFile.Close()
+
+	w.Header().Set("Content-Disposition", "attachment; filename=oaamonitor.db")
+	w.Header().Set("Content-Type", "application/octet-stream")
+
+	_, err = io.Copy(w, dbFile)
+	if err != nil {
+		http.Error(w, "Error occurred during file download", http.StatusInternalServerError)
+		return
+	}
+}
+
 func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 	players, err := models.FetchPlayers(s.db)
 	if err != nil {
@@ -190,16 +213,23 @@ func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dbSize, err := getDatabaseSize(s.config.DatabasePath)
+	if err != nil {
+		dbSize = "Unknown"
+	}
+
 	data := struct {
 		Title             string
 		Players           []models.Player
 		Teams             []string
 		PlayerDifferences []models.PlayerDifference
+		DatabaseSize      string
 	}{
 		Title:             "Outs Above Average Monitor",
 		Players:           players,
 		Teams:             teams,
 		PlayerDifferences: playerDifferences,
+		DatabaseSize:      dbSize,
 	}
 
 	s.renderTemplate(w, "index.html", data)
@@ -220,7 +250,7 @@ func main() {
 	}
 	defer db.Close()
 
-	server, err := NewServer(db)
+	server, err := NewServer(db, cfg)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
@@ -288,4 +318,13 @@ func normalizeTeamName(teamName string) string {
 	default:
 		return teamName
 	}
+}
+
+func getDatabaseSize(dbPath string) (string, error) {
+	fileInfo, err := os.Stat(dbPath)
+	if err != nil {
+		return "", err
+	}
+	size := fileInfo.Size()
+	return fmt.Sprintf("%.2f MB", float64(size)/1024/1024), nil
 }
