@@ -325,24 +325,45 @@ td {
     border-bottom: 1px solid var(--border-color);
 }
 
+.button-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 20px 0;
+}
+
 .btn, a.btn {
+    display: inline-block;
     background-color: var(--link-color);
-    border: none;
     color: white;
+    border: none;
     padding: 10px 20px;
     text-align: center;
     text-decoration: none;
-    display: inline;
     font-size: 16px;
-    margin: 20px 0;
     cursor: pointer;
     border-radius: 4px;
     transition: background-color 0.3s;
+    white-space: nowrap;
+    flex: 1 1 auto;
+    max-width: 100%;
 }
 
 .btn:hover, a.btn:hover {
     background-color: color-mix(in srgb, var(--link-color) 85%, black);
 }
+
+@media (max-width: 768px) {
+    .button-container {
+        flex-direction: column;
+    }
+
+    .btn, a.btn {
+        width: 100%;
+        max-width: none;
+    }
+}
+
 
 #teamChart {
     width: 100%;

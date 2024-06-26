@@ -2,8 +2,10 @@
 
 <canvas id="teamChart" style="padding: 10px;"></canvas>
 
-<button id="downloadChart" class="btn">Download Chart as PNG</button>
-<a id="savantLink" class="btn" href="https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear={{ .CurrentYear }}&endYear={{ .CurrentYear }}&split=yes&team={{ .TeamAbbreviation }}&range=year&min=10&pos=&roles=&viz=hide" class="btn" target="_blank">View on Baseball Savant</a>
+<div class="button-container">
+    <button id="downloadChart" class="btn">Download Chart as PNG</button>
+    <a id="savantLink" class="btn" href="https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear={{ .CurrentYear }}&endYear={{ .CurrentYear }}&split=yes&team={{ .TeamAbbreviation }}&range=year&min=10&pos=&roles=&viz=hide" target="_blank">View on Baseball Savant</a>
+</div>
 
 <div id="playersList" style="border-collapse: collapse">
     <h2>{{ .TeamName }} OAA</h2>
