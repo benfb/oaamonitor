@@ -343,3 +343,14 @@ td {
 .btn:hover, a.btn:hover {
     background-color: color-mix(in srgb, var(--link-color) 85%, black);
 }
+
+#teamChart {
+    width: 100%;
+    max-height: 80vh;
+}
+
+@media (max-width: 768px) {
+    #teamChart {
+        max-height: 70vh; /* Allow slightly more height on mobile if needed */
+    }
+}

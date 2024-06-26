@@ -10,12 +10,20 @@ const plugin = {
     }
 };
 
+const colorPalette = [
+    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#F7464A', '#46BFBD', '#FDB45C',
+    '#949FB1', '#4D5360', '#1ABC9C', '#2ECC71', '#3498DB', '#9B59B6',
+    '#E67E22', '#E74C3C', '#95A5A6', '#34495E', '#D35400', '#8E44AD'
+];
+
 function createTeamChart(teamStats, teamName) {
     const ctx = document.getElementById('teamChart').getContext('2d');
     const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isMobile = window.innerWidth < 768;
 
     const players = [...new Set(teamStats.map(stat => stat.name))];
-    const datasets = players.map(player => {
+    const datasets = players.map((player, index) => {
         const playerStats = teamStats.filter(stat => stat.name === player);
         return {
             label: player,
@@ -26,8 +34,10 @@ function createTeamChart(teamStats, teamName) {
             })),
             fill: false,
             borderWidth: 1,
-            pointRadius: 5,
-            pointHoverRadius: 7,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            borderColor: colorPalette[index % colorPalette.length],
+            backgroundColor: colorPalette[index % colorPalette.length],
         };
     });
 
@@ -41,23 +51,46 @@ function createTeamChart(teamStats, teamName) {
             datasets: datasets
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            aspectRatio: isMobile ? 1 : 2,
+            layout: {
+                padding: {
+                    top: 10,
+                    right: 20,
+                    bottom: 10,
+                    left: 10
+                }
+            },
             scales: {
                 x: {
                     type: 'time',
                     time: {
                         unit: 'day',
                         tooltipFormat: 'MMM d, yyyy',
+                        displayFormats: {
+                            day: 'MMM d'
+                        }
                     },
                     grid: {
                         color: isDarkMode ? '#323232' : '#E5E5E5',
                     },
                     ticks: {
-                        align: 'start',
+                        maxRotation: 45,
+                        minRotation: 45,
+                        autoSkip: true,
+                        maxTicksLimit: isMobile ? 5 : 10,
+                        font: {
+                            size: isMobile ? 10 : 12
+                        }
                     }
                 },
                 y: {
                     ticks: {
                         stepSize: 1,
+                        font: {
+                            size: isMobile ? 10 : 12
+                        }
                     },
                     grid: {
                         color: isDarkMode ? '#323232' : '#E5E5E5',
@@ -72,38 +105,25 @@ function createTeamChart(teamStats, teamName) {
                     display: true,
                     text: `${teamName} OAA Over Time`,
                     font: {
-                        size: 20
+                        size: isMobile ? 16 : 20
                     }
                 },
                 legend: {
+                    position: 'top',
+                    labels: {
+                        boxWidth: isMobile ? 10 : 40,
+                        font: {
+                            size: isMobile ? 10 : 12
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    },
                     onClick: (e, legendItem, legend) => {
                         window.open('/player/' + teamStats.filter(stat => stat.name === legendItem.text)[0].player_id, '_blank')
                     },
                 },
                 datalabels: {
-                    backgroundColor: function (context) {
-                        return context.dataset.backgroundColor;
-                    },
-                    borderRadius: 4,
-                    color: 'white',
-                    font: {
-                        weight: 'bold'
-                    },
-                    padding: 6,
-                    anchor: 'center',
-                    align: 'right',
-                    offset: 10,
-                    border: 10,
-                    display: function (context) {
-                        return context.dataset.data.length - 1 === context.dataIndex ? 'auto' : false;
-                    },
-                    color: isDarkMode ? '#ffffff' : '#000000',
-                    font: {
-                        size: 14
-                    },
-                    formatter: function (value, context) {
-                        return context.dataset.label + ': ' + value.y;
-                    }
+                    display: false
                 }
             },
             onClick: (e, elements) => {
@@ -113,11 +133,18 @@ function createTeamChart(teamStats, teamName) {
                 }
             },
         },
-        plugins: [plugin, ChartDataLabels],
-        maintainAspectRatio: false,
+        plugins: [plugin, ChartDataLabels]
     });
 
     return chart;
+}
+
+function abbreviateName(name) {
+    const parts = name.split(' ');
+    if (parts.length > 1) {
+        return `${parts[0][0]}. ${parts[parts.length - 1]}`;
+    }
+    return name;
 }
 
 function createSparklines(sparklinesData) {
@@ -138,12 +165,11 @@ function createSparklines(sparklinesData) {
                 ]
             },
             options: {
+                responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                     x: { display: false },
                     y: { display: false }
-                },
-                elements: {
-                    line: { tension: 0 }
                 },
                 plugins: {
                     legend: { display: false },
@@ -163,5 +189,13 @@ document.addEventListener('DOMContentLoaded', () => {
         link.href = chart.toBase64Image();
         link.download = `${teamName}_OAA_Chart.png`;
         link.click();
+    });
+
+    // Adjust chart size on window resize
+    window.addEventListener('resize', () => {
+        const isMobile = window.innerWidth < 768;
+        chart.options.scales.x.ticks.maxTicksLimit = isMobile ? 5 : 10;
+        chart.options.aspectRatio = isMobile ? 1 : 2;
+        chart.update();
     });
 });
