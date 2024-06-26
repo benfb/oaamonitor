@@ -2,6 +2,8 @@ package models
 
 import (
 	"database/sql"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -47,7 +49,7 @@ func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 	FROM outs_above_average
 	WHERE LOWER(team) = ?
 	GROUP BY player_id, date
-	ORDER BY player_id, date;`, teamName)
+	ORDER BY last_name, date;`, teamName)
 	if err != nil {
 		return nil, "", err
 	}
@@ -75,7 +77,8 @@ type SparklinePoint struct {
 	OAA  int
 }
 
-// Function which retruns a map of player ID to a struct containing the player's name, the latest OAA value, and a slice of OAA values ordered by date
+// MapStatsByPlayerID returns a map of player ID to a struct containing the player's name, the latest OAA value, and a slice of OAA values ordered by date
+// The returned map's keys are sorted based on the players' last names
 func MapStatsByPlayerID(stats []Stat) map[int]struct {
 	Name       string
 	LatestOAA  int
@@ -86,8 +89,12 @@ func MapStatsByPlayerID(stats []Stat) map[int]struct {
 		LatestOAA  int
 		OAAHistory []SparklinePoint
 	})
+
+	// First, create the map and collect player IDs
+	playerIDs := make([]int, 0, len(stats))
 	for _, stat := range stats {
 		if _, ok := statsMap[stat.PlayerID]; !ok {
+			playerIDs = append(playerIDs, stat.PlayerID)
 			statsMap[stat.PlayerID] = struct {
 				Name       string
 				LatestOAA  int
@@ -101,18 +108,32 @@ func MapStatsByPlayerID(stats []Stat) map[int]struct {
 				}},
 			}
 		} else {
-			statsMap[stat.PlayerID] = struct {
-				Name       string
-				LatestOAA  int
-				OAAHistory []SparklinePoint
-			}{
-				Name:       statsMap[stat.PlayerID].Name,
-				LatestOAA:  stat.OAA,
-				OAAHistory: append(statsMap[stat.PlayerID].OAAHistory, SparklinePoint{stat.Date, stat.OAA}),
-			}
+			entry := statsMap[stat.PlayerID]
+			entry.LatestOAA = stat.OAA
+			entry.OAAHistory = append(entry.OAAHistory, SparklinePoint{stat.Date, stat.OAA})
+			statsMap[stat.PlayerID] = entry
 		}
 	}
-	return statsMap
+
+	// Sort playerIDs by last name
+	slices.SortFunc(playerIDs, func(a, b int) int {
+		lastNameA := strings.Split(statsMap[a].Name, " ")[1]
+		lastNameB := strings.Split(statsMap[b].Name, " ")[1]
+		return strings.Compare(lastNameA, lastNameB)
+	})
+
+	// Create a new map with sorted keys
+	sortedStatsMap := make(map[int]struct {
+		Name       string
+		LatestOAA  int
+		OAAHistory []SparklinePoint
+	}, len(statsMap))
+
+	for _, id := range playerIDs {
+		sortedStatsMap[id] = statsMap[id]
+	}
+
+	return sortedStatsMap
 }
 
 // FetchPlayers retrieves distinct player IDs and names from the database in alphabetical order
