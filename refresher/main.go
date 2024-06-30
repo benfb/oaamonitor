@@ -150,6 +150,7 @@ func createTable(db *sql.DB) error {
 		last_name TEXT,
 		full_name TEXT,
 		team TEXT,
+		primary_position TEXT,
 		oaa INTEGER,
 		actual_success_rate REAL,
 		estimated_success_rate REAL,
@@ -163,13 +164,14 @@ func createTable(db *sql.DB) error {
 
 func prepareInsertStatement(db *sql.DB) (*sql.Stmt, error) {
 	insertSQL := `
-	INSERT INTO outs_above_average (player_id, first_name, last_name, full_name, team, oaa, actual_success_rate, estimated_success_rate, diff_success_rate, date)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE)
+	INSERT INTO outs_above_average (player_id, first_name, last_name, full_name, team, primary_position, oaa, actual_success_rate, estimated_success_rate, diff_success_rate, date)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE)
 	ON CONFLICT(player_id, date) DO UPDATE SET
 		first_name = excluded.first_name,
 		last_name = excluded.last_name,
 		full_name = excluded.full_name,
 		team = excluded.team,
+		primary_position = excluded.primary_position,
 		oaa = excluded.oaa,
 		actual_success_rate = excluded.actual_success_rate,
 		estimated_success_rate = excluded.estimated_success_rate,
@@ -197,10 +199,13 @@ func processRecord(stmt *sql.Stmt, record []string, expectedFields int) error {
 	}
 
 	team := record[2]
+
 	oaa, err := strconv.Atoi(record[6])
 	if err != nil {
 		return fmt.Errorf("invalid OAA value: %v", record[6])
 	}
+
+	primaryPosition := record[4]
 
 	actualSuccessRate, err := parsePercentage(record[13])
 	if err != nil {
@@ -217,7 +222,7 @@ func processRecord(stmt *sql.Stmt, record []string, expectedFields int) error {
 		return fmt.Errorf("invalid diff success rate: %v", record[15])
 	}
 
-	_, err = stmt.Exec(playerID, firstName, lastName, fullName, team, oaa, actualSuccessRate, estimatedSuccessRate, diffSuccessRate)
+	_, err = stmt.Exec(playerID, firstName, lastName, fullName, team, primaryPosition, oaa, actualSuccessRate, estimatedSuccessRate, diffSuccessRate)
 	return err
 }
 
