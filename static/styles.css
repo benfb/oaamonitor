@@ -445,9 +445,32 @@ a.btn:hover {
     border-bottom: 1px solid var(--border-color);
 }
 
-#teamPlayersTable td:nth-child(2),
+/* Adjust column widths */
+#teamPlayersTable th:nth-child(1),
+#teamPlayersTable td:nth-child(1) {
+    width: 30%;
+}
+
+#teamPlayersTable th:nth-child(2),
+#teamPlayersTable td:nth-child(2) {
+    width: 15%;
+}
+
+#teamPlayersTable th:nth-child(3),
 #teamPlayersTable td:nth-child(3) {
-    white-space: nowrap;
+    width: 15%;
+}
+
+#teamPlayersTable th:nth-child(4),
+#teamPlayersTable td:nth-child(4) {
+    width: 40%;
+}
+
+/* Sparkline styling */
+#teamPlayersTable td:nth-child(4) canvas {
+    width: 100%;
+    max-width: 150px;
+    height: 30px;
 }
 
 @media (max-width: 768px) {
@@ -458,5 +481,31 @@ a.btn:hover {
     #teamPlayersTable th,
     #teamPlayersTable td {
         padding: 8px 10px;
+    }
+
+    /* Adjust column widths for mobile */
+    #teamPlayersTable th:nth-child(1),
+    #teamPlayersTable td:nth-child(1) {
+        width: 40%;
+    }
+
+    #teamPlayersTable th:nth-child(2),
+    #teamPlayersTable td:nth-child(2) {
+        width: 20%;
+    }
+
+    #teamPlayersTable th:nth-child(3),
+    #teamPlayersTable td:nth-child(3) {
+        width: 15%;
+    }
+
+    #teamPlayersTable th:nth-child(4),
+    #teamPlayersTable td:nth-child(4) {
+        width: 25%;
+    }
+
+    /* Adjust sparkline size for mobile */
+    #teamPlayersTable td:nth-child(4) canvas {
+        max-width: 100px;
     }
 }
