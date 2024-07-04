@@ -312,17 +312,34 @@ nav ul li:hover .dropdown-content {
     margin: 1em 0;
 }
 
-th, td {
+#playerDifferences th, 
+#playerDifferences td {
     padding: 10px 15px;
+    text-align: left;
 }
 
-th {
-    text-align: left;
+#playerDifferences th {
     border-bottom: 2px solid var(--border-color);
 }
 
-td {
+#playerDifferences td {
     border-bottom: 1px solid var(--border-color);
+}
+
+#playerDifferences td:nth-child(2),
+#playerDifferences td:nth-child(3) {
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    #playerDifferences {
+        font-size: 14px;
+    }
+
+    #playerDifferences th, 
+    #playerDifferences td {
+        padding: 8px 10px;
+    }
 }
 
 .button-container {

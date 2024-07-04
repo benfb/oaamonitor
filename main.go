@@ -105,7 +105,7 @@ func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	playerStats, playerName, err := models.FetchPlayerStats(s.db, playerID)
+	playerStats, playerName, playerPosition, err := models.FetchPlayerStats(s.db, playerID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -117,18 +117,25 @@ func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	title := playerName + " Outs Above Average"
+	if playerPosition != "N/A" {
+		title = fmt.Sprintf("%s (%s) Outs Above Average", playerName, playerPosition)
+	}
+
 	data := struct {
-		Title       string
-		PlayerID    int
-		PlayerName  string
-		PlayerStats []models.Stat
-		Teams       []string
+		Title          string
+		PlayerID       int
+		PlayerName     string
+		PlayerPosition string
+		PlayerStats    []models.Stat
+		Teams          []string
 	}{
-		Title:       fmt.Sprintf("%s Outs Above Average", playerName),
-		PlayerID:    playerID,
-		PlayerName:  playerName,
-		PlayerStats: playerStats,
-		Teams:       teams,
+		Title:          title,
+		PlayerID:       playerID,
+		PlayerName:     playerName,
+		PlayerPosition: playerPosition,
+		PlayerStats:    playerStats,
+		Teams:          teams,
 	}
 
 	s.renderTemplate(w, "player.html", data)
