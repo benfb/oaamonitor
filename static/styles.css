@@ -315,39 +315,50 @@ nav ul li:hover .dropdown-content {
     }
 }
 
-/* Table column spacing */
-#playerDifferences {
+/* Table styling (applies to all trend tables) */
+#playerDifferences,
+#weeklyTrends,
+#monthlyTrends {
     width: 100%;
     border-collapse: collapse;
     margin: 1em 0;
 }
 
 #playerDifferences th,
-#playerDifferences td {
+#playerDifferences td,
+#weeklyTrends th,
+#weeklyTrends td,
+#monthlyTrends th,
+#monthlyTrends td {
     padding: 10px 15px;
     text-align: left;
 }
 
-#playerDifferences th {
+#playerDifferences th,
+#weeklyTrends th,
+#monthlyTrends th {
     border-bottom: 2px solid var(--border-color);
 }
 
-#playerDifferences td {
+#playerDifferences td,
+#weeklyTrends td,
+#monthlyTrends td {
     border-bottom: 1px solid var(--border-color);
 }
 
-#playerDifferences td:nth-child(2),
-#playerDifferences td:nth-child(3) {
-    white-space: nowrap;
-}
-
 @media (max-width: 768px) {
-    #playerDifferences {
+    #playerDifferences,
+    #weeklyTrends,
+    #monthlyTrends {
         font-size: 14px;
     }
 
     #playerDifferences th,
-    #playerDifferences td {
+    #playerDifferences td,
+    #weeklyTrends th,
+    #weeklyTrends td,
+    #monthlyTrends th,
+    #monthlyTrends td {
         padding: 8px 10px;
     }
 }

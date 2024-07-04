@@ -44,4 +44,48 @@
         {{ end }}
     </tbody>
 </table>
+
+<h2>Weekly trends</h2>
+<table id="weeklyTrends">
+    <thead>
+        <tr>
+            <th>Player</th>
+            <th>Position</th>
+            <th>Team</th>
+            <th>Difference</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range .SevenDayTrends }}
+        <tr>
+            <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
+            <td>{{ .Position }}</td>
+            <td>{{ .Team }}</td>
+            <td>{{ .Difference }}</td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
+
+<h2>Monthly trends</h2>
+<table id="monthlyTrends">
+    <thead>
+        <tr>
+            <th>Player</th>
+            <th>Position</th>
+            <th>Team</th>
+            <th>Difference</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range .ThirtyDayTrends }}
+        <tr>
+            <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
+            <td>{{ .Position }}</td>
+            <td>{{ .Team }}</td>
+            <td>{{ .Difference }}</td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
 {{ template "footer" . }}

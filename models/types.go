@@ -36,6 +36,17 @@ type PlayerDifference struct {
 	Difference  int    `json:"difference"`
 }
 
+// PlayerTrend represents a player's OAA trend over the last 7 days
+type PlayerTrend struct {
+	PlayerID   int    `json:"player_id"`
+	Name       string `json:"name"`
+	Team       string `json:"team"`
+	Position   string `json:"position"`
+	StartOAA   int    `json:"start_oaa"`
+	EndOAA     int    `json:"end_oaa"`
+	Difference int    `json:"difference"`
+}
+
 func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 	rows, err := db.Query(`
 	WITH latest_positions AS (
@@ -329,7 +340,7 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 			WHERE current.date = date((SELECT MAX(date) FROM outs_above_average), '-1 day')
 			AND previous.date = date((SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average)), '-1 day')
 			AND current.oaa != previous.oaa
-			ORDER BY ABS(difference) DESC
+			ORDER BY difference DESC
 			LIMIT ?;
 			`, limit)
 	} else {
@@ -349,7 +360,7 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 			WHERE current.date = (SELECT MAX(date) FROM outs_above_average)
 			AND previous.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
 			AND current.oaa != previous.oaa
-			ORDER BY ABS(difference) DESC
+			ORDER BY difference DESC
 			LIMIT ?;`, limit)
 	}
 
@@ -371,4 +382,136 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 	}
 
 	return differences, nil
+}
+
+func FetchSevenDayTrends(db *sql.DB) ([]PlayerTrend, error) {
+	query := `
+    WITH latest_positions AS (
+        SELECT player_id, primary_position,
+            ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY date DESC) as rn
+        FROM outs_above_average
+        WHERE primary_position IS NOT NULL
+    ),
+    recent_data AS (
+        SELECT
+            o.player_id,
+            o.full_name,
+            o.team,
+            COALESCE(lp.primary_position, 'N/A') as position,
+            o.oaa,
+            o.date
+        FROM outs_above_average o
+        LEFT JOIN latest_positions lp ON o.player_id = lp.player_id AND lp.rn = 1
+        WHERE o.date >= (SELECT DATE(MAX(date), '-7 days') FROM outs_above_average)
+    ),
+    player_trends AS (
+        SELECT
+            player_id,
+            full_name,
+            team,
+            position,
+            FIRST_VALUE(oaa) OVER (PARTITION BY player_id ORDER BY date ASC) as start_oaa,
+            FIRST_VALUE(oaa) OVER (PARTITION BY player_id ORDER BY date DESC) as end_oaa,
+            ROW_NUMBER() OVER (PARTITION BY player_id) as rn
+        FROM recent_data
+    )
+    SELECT
+        player_id,
+        full_name,
+        team,
+        position,
+        start_oaa,
+        end_oaa,
+        (end_oaa - start_oaa) as difference
+    FROM player_trends
+    WHERE rn = 1 AND ABS(end_oaa - start_oaa) >= 3
+    ORDER BY difference DESC
+    LIMIT 100;
+    `
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var trends []PlayerTrend
+	for rows.Next() {
+		var trend PlayerTrend
+		if err := rows.Scan(&trend.PlayerID, &trend.Name, &trend.Team, &trend.Position, &trend.StartOAA, &trend.EndOAA, &trend.Difference); err != nil {
+			return nil, err
+		}
+		trends = append(trends, trend)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return trends, nil
+}
+
+func FetchThirtyDayTrends(db *sql.DB) ([]PlayerTrend, error) {
+	query := `
+    WITH latest_positions AS (
+        SELECT player_id, primary_position,
+            ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY date DESC) as rn
+        FROM outs_above_average
+        WHERE primary_position IS NOT NULL
+    ),
+    recent_data AS (
+        SELECT
+            o.player_id,
+            o.full_name,
+            o.team,
+            COALESCE(lp.primary_position, 'N/A') as position,
+            o.oaa,
+            o.date
+        FROM outs_above_average o
+        LEFT JOIN latest_positions lp ON o.player_id = lp.player_id AND lp.rn = 1
+        WHERE o.date >= (SELECT DATE(MAX(date), '-30 days') FROM outs_above_average)
+    ),
+    player_trends AS (
+        SELECT
+            player_id,
+            full_name,
+            team,
+            position,
+            FIRST_VALUE(oaa) OVER (PARTITION BY player_id ORDER BY date ASC) as start_oaa,
+            FIRST_VALUE(oaa) OVER (PARTITION BY player_id ORDER BY date DESC) as end_oaa,
+            ROW_NUMBER() OVER (PARTITION BY player_id) as rn
+        FROM recent_data
+    )
+    SELECT
+        player_id,
+        full_name,
+        team,
+        position,
+        start_oaa,
+        end_oaa,
+        (end_oaa - start_oaa) as difference
+    FROM player_trends
+    WHERE rn = 1 AND ABS(end_oaa - start_oaa) > 3
+    ORDER BY difference DESC
+    LIMIT 100;
+    `
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var trends []PlayerTrend
+	for rows.Next() {
+		var trend PlayerTrend
+		if err := rows.Scan(&trend.PlayerID, &trend.Name, &trend.Team, &trend.Position, &trend.StartOAA, &trend.EndOAA, &trend.Difference); err != nil {
+			return nil, err
+		}
+		trends = append(trends, trend)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return trends, nil
 }

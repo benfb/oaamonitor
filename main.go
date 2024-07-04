@@ -221,6 +221,18 @@ func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sevenDayTrends, err := models.FetchSevenDayTrends(s.db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	thirtyDayTrends, err := models.FetchThirtyDayTrends(s.db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	dbSize, err := getDatabaseSize(s.config.DatabasePath)
 	if err != nil {
 		dbSize = "Unknown"
@@ -231,12 +243,16 @@ func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 		Players           []models.Player
 		Teams             []string
 		PlayerDifferences []models.PlayerDifference
+		SevenDayTrends    []models.PlayerTrend
+		ThirtyDayTrends   []models.PlayerTrend
 		DatabaseSize      string
 	}{
 		Title:             "Outs Above Average Monitor",
 		Players:           players,
 		Teams:             teams,
 		PlayerDifferences: playerDifferences,
+		SevenDayTrends:    sevenDayTrends,
+		ThirtyDayTrends:   thirtyDayTrends,
 		DatabaseSize:      dbSize,
 	}
 
