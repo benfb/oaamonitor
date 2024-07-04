@@ -401,7 +401,7 @@ func FetchSevenDayTrends(db *sql.DB) ([]PlayerTrend, error) {
         end_oaa,
         (end_oaa - start_oaa) as difference
     FROM player_trends
-    WHERE rn = 1 AND ABS(end_oaa - start_oaa) >= 3
+    WHERE rn = 1 AND ABS(end_oaa - start_oaa) >= 2
     ORDER BY difference DESC
     LIMIT 100;
     `
