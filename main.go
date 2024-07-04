@@ -159,16 +159,11 @@ func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 	playerStats := models.MapStatsByPlayerID(teamStats)
 
 	data := struct {
-		Title          string
-		TeamName       string
-		TeamStats      []models.Stat
-		Teams          []string
-		SparklinesData map[int]struct {
-			Name       string
-			Position   string
-			LatestOAA  int
-			OAAHistory []models.SparklinePoint
-		}
+		Title            string
+		TeamName         string
+		TeamStats        []models.Stat
+		Teams            []string
+		SparklinesData   []models.PlayerStats
 		CurrentYear      string
 		TeamAbbreviation string
 	}{

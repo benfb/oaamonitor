@@ -2,8 +2,7 @@ package models
 
 import (
 	"database/sql"
-	"slices"
-	"strings"
+	"sort"
 	"time"
 )
 
@@ -97,70 +96,48 @@ type SparklinePoint struct {
 	OAA  int
 }
 
-func MapStatsByPlayerID(stats []Stat) map[int]struct {
+type PlayerStats struct {
+	PlayerID   int
 	Name       string
 	Position   string
 	LatestOAA  int
 	OAAHistory []SparklinePoint
-} {
-	statsMap := make(map[int]struct {
-		Name       string
-		Position   string
-		LatestOAA  int
-		OAAHistory []SparklinePoint
-	})
+}
+
+// MapStatsByPlayerID returns a slice of PlayerStats sorted by current OAA in descending order
+func MapStatsByPlayerID(stats []Stat) []PlayerStats {
+	statsMap := make(map[int]*PlayerStats)
 
 	for _, stat := range stats {
 		if entry, ok := statsMap[stat.PlayerID]; !ok {
-			statsMap[stat.PlayerID] = struct {
-				Name       string
-				Position   string
-				LatestOAA  int
-				OAAHistory []SparklinePoint
-			}{
-				Name:      stat.Name,
-				Position:  stat.Position,
-				LatestOAA: stat.OAA,
-				OAAHistory: []SparklinePoint{{
-					Date: stat.Date,
-					OAA:  stat.OAA,
-				}},
+			statsMap[stat.PlayerID] = &PlayerStats{
+				PlayerID:   stat.PlayerID,
+				Name:       stat.Name,
+				Position:   stat.Position,
+				LatestOAA:  stat.OAA,
+				OAAHistory: []SparklinePoint{{Date: stat.Date, OAA: stat.OAA}},
 			}
 		} else {
 			entry.LatestOAA = stat.OAA
-			entry.OAAHistory = append(entry.OAAHistory, SparklinePoint{stat.Date, stat.OAA})
-			// Only update the position if it's not 'N/A'
+			entry.OAAHistory = append(entry.OAAHistory, SparklinePoint{Date: stat.Date, OAA: stat.OAA})
 			if stat.Position != "N/A" {
 				entry.Position = stat.Position
 			}
-			statsMap[stat.PlayerID] = entry
 		}
 	}
 
-	// Sort playerIDs by last name
-	playerIDs := make([]int, 0, len(statsMap))
-	for id := range statsMap {
-		playerIDs = append(playerIDs, id)
+	// Convert map to slice
+	playerStatsList := make([]PlayerStats, 0, len(statsMap))
+	for _, v := range statsMap {
+		playerStatsList = append(playerStatsList, *v)
 	}
-	slices.SortFunc(playerIDs, func(a, b int) int {
-		lastNameA := strings.Split(statsMap[a].Name, " ")[1]
-		lastNameB := strings.Split(statsMap[b].Name, " ")[1]
-		return strings.Compare(lastNameA, lastNameB)
+
+	// Sort the slice by LatestOAA in descending order
+	sort.Slice(playerStatsList, func(i, j int) bool {
+		return playerStatsList[i].LatestOAA > playerStatsList[j].LatestOAA
 	})
 
-	// Create a new map with sorted keys
-	sortedStatsMap := make(map[int]struct {
-		Name       string
-		Position   string
-		LatestOAA  int
-		OAAHistory []SparklinePoint
-	}, len(statsMap))
-
-	for _, id := range playerIDs {
-		sortedStatsMap[id] = statsMap[id]
-	}
-
-	return sortedStatsMap
+	return playerStatsList
 }
 
 // FetchPlayers retrieves distinct player IDs and names from the database in alphabetical order
