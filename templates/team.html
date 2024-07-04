@@ -25,13 +25,13 @@
             </tr>
         </thead>
         <tbody>
-            {{ range $player, $stats := .SparklinesData }}
+            {{ range .SparklinesData }}
             <tr>
-                <td><a href="/player/{{ $player }}">{{ $stats.Name }}</a></td>
-                <td>{{ $stats.Position }}</td>
-                <td>{{ $stats.LatestOAA }}</td>
+                <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
+                <td>{{ .Position }}</td>
+                <td>{{ .LatestOAA }}</td>
                 <td>
-                    <canvas id="playerChart{{ $player }}"></canvas>
+                    <canvas id="playerChart{{ .PlayerID }}"></canvas>
                 </td>
             </tr>
             {{ end }}
