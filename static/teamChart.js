@@ -181,9 +181,8 @@ function abbreviateName(name) {
 }
 
 function createSparklines(sparklinesData) {
-  const sparklinesDataMap = new Map(Object.entries(sparklinesData));
-  sparklinesDataMap.forEach((stats, player) => {
-    const canvas = document.getElementById("playerChart" + player);
+  sparklinesData.forEach((stats) => {
+    const canvas = document.getElementById("playerChart" + stats.PlayerID);
     new Chart(canvas.getContext("2d"), {
       type: "line",
       data: {
@@ -191,7 +190,7 @@ function createSparklines(sparklinesData) {
         datasets: [
           {
             data: stats.OAAHistory.map((obj) => obj.OAA),
-            fill: true,
+            fill: false,
             borderWidth: 1,
             pointRadius: 0,
             pointHoverRadius: 0,
