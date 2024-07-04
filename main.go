@@ -165,6 +165,7 @@ func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 		Teams          []string
 		SparklinesData map[int]struct {
 			Name       string
+			Position   string
 			LatestOAA  int
 			OAAHistory []models.SparklinePoint
 		}

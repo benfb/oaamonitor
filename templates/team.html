@@ -1,10 +1,16 @@
 {{ template "header" . }}
 
-<canvas id="teamChart" style="padding: 10px;"></canvas>
+<canvas id="teamChart" style="padding: 10px"></canvas>
 
 <div class="button-container">
     <button id="downloadChart" class="btn">Download Chart as PNG</button>
-    <a id="savantLink" class="btn" href="https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear={{ .CurrentYear }}&endYear={{ .CurrentYear }}&split=yes&team={{ .TeamAbbreviation }}&range=year&min=10&pos=&roles=&viz=hide" target="_blank">View on Baseball Savant</a>
+    <a
+        id="savantLink"
+        class="btn"
+        href="https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear={{ .CurrentYear }}&endYear={{ .CurrentYear }}&split=yes&team={{ .TeamAbbreviation }}&range=year&min=10&pos=&roles=&viz=hide"
+        target="_blank"
+        >View on Baseball Savant</a
+    >
 </div>
 
 <div id="playersList" style="border-collapse: collapse">
@@ -13,6 +19,7 @@
         <thead>
             <tr>
                 <th>Player</th>
+                <th>Position</th>
                 <th>OAA</th>
                 <th></th>
             </tr>
@@ -21,9 +28,14 @@
             {{ range $player, $stats := .SparklinesData }}
             <tr>
                 <td><a href="/player/{{ $player }}">{{ $stats.Name }}</a></td>
+                <td>{{ $stats.Position }}</td>
                 <td>{{ $stats.LatestOAA }}</td>
                 <td>
-                    <canvas width="100" height="30" id="playerChart{{ $player }}"></canvas>
+                    <canvas
+                        width="100"
+                        height="30"
+                        id="playerChart{{ $player }}"
+                    ></canvas>
                 </td>
             </tr>
             {{ end }}

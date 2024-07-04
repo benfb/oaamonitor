@@ -36,22 +36,29 @@ type PlayerDifference struct {
 	Difference  int    `json:"difference"`
 }
 
-// FetchTeamStats retrieves statistics for all players in a specific team from the database
 func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 	rows, err := db.Query(`
+	WITH latest_positions AS (
+		SELECT player_id, primary_position,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY date DESC) as rn
+		FROM outs_above_average
+		WHERE LOWER(team) = ? AND primary_position IS NOT NULL
+	)
 	SELECT
-		player_id,
-		full_name,
-		team,
-		oaa,
-		date,
-		actual_success_rate,
-		estimated_success_rate,
-		diff_success_rate
-	FROM outs_above_average
-	WHERE LOWER(team) = ?
-	GROUP BY player_id, date
-	ORDER BY last_name, date;`, teamName)
+		o.player_id,
+		o.full_name,
+		o.team,
+		COALESCE(lp.primary_position, 'N/A') as position,
+		o.oaa,
+		o.date,
+		o.actual_success_rate,
+		o.estimated_success_rate,
+		o.diff_success_rate
+	FROM outs_above_average o
+	LEFT JOIN latest_positions lp ON o.player_id = lp.player_id AND lp.rn = 1
+	WHERE LOWER(o.team) = ?
+	GROUP BY o.player_id, o.date
+	ORDER BY o.last_name, o.date;`, teamName, teamName)
 	if err != nil {
 		return nil, "", err
 	}
@@ -61,7 +68,7 @@ func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 	var capitalizedTeamName string
 	for rows.Next() {
 		var stat Stat
-		if err := rows.Scan(&stat.PlayerID, &stat.Name, &stat.Team, &stat.OAA, &stat.Date, &stat.ActualSuccessRate, &stat.EstimatedSuccessRate, &stat.DiffSuccessRate); err != nil {
+		if err := rows.Scan(&stat.PlayerID, &stat.Name, &stat.Team, &stat.Position, &stat.OAA, &stat.Date, &stat.ActualSuccessRate, &stat.EstimatedSuccessRate, &stat.DiffSuccessRate); err != nil {
 			return nil, "", err
 		}
 		stats = append(stats, stat)
@@ -79,30 +86,29 @@ type SparklinePoint struct {
 	OAA  int
 }
 
-// MapStatsByPlayerID returns a map of player ID to a struct containing the player's name, the latest OAA value, and a slice of OAA values ordered by date
-// The returned map's keys are sorted based on the players' last names
 func MapStatsByPlayerID(stats []Stat) map[int]struct {
 	Name       string
+	Position   string
 	LatestOAA  int
 	OAAHistory []SparklinePoint
 } {
 	statsMap := make(map[int]struct {
 		Name       string
+		Position   string
 		LatestOAA  int
 		OAAHistory []SparklinePoint
 	})
 
-	// First, create the map and collect player IDs
-	playerIDs := make([]int, 0, len(stats))
 	for _, stat := range stats {
-		if _, ok := statsMap[stat.PlayerID]; !ok {
-			playerIDs = append(playerIDs, stat.PlayerID)
+		if entry, ok := statsMap[stat.PlayerID]; !ok {
 			statsMap[stat.PlayerID] = struct {
 				Name       string
+				Position   string
 				LatestOAA  int
 				OAAHistory []SparklinePoint
 			}{
 				Name:      stat.Name,
+				Position:  stat.Position,
 				LatestOAA: stat.OAA,
 				OAAHistory: []SparklinePoint{{
 					Date: stat.Date,
@@ -110,14 +116,21 @@ func MapStatsByPlayerID(stats []Stat) map[int]struct {
 				}},
 			}
 		} else {
-			entry := statsMap[stat.PlayerID]
 			entry.LatestOAA = stat.OAA
 			entry.OAAHistory = append(entry.OAAHistory, SparklinePoint{stat.Date, stat.OAA})
+			// Only update the position if it's not 'N/A'
+			if stat.Position != "N/A" {
+				entry.Position = stat.Position
+			}
 			statsMap[stat.PlayerID] = entry
 		}
 	}
 
 	// Sort playerIDs by last name
+	playerIDs := make([]int, 0, len(statsMap))
+	for id := range statsMap {
+		playerIDs = append(playerIDs, id)
+	}
 	slices.SortFunc(playerIDs, func(a, b int) int {
 		lastNameA := strings.Split(statsMap[a].Name, " ")[1]
 		lastNameB := strings.Split(statsMap[b].Name, " ")[1]
@@ -127,6 +140,7 @@ func MapStatsByPlayerID(stats []Stat) map[int]struct {
 	// Create a new map with sorted keys
 	sortedStatsMap := make(map[int]struct {
 		Name       string
+		Position   string
 		LatestOAA  int
 		OAAHistory []SparklinePoint
 	}, len(statsMap))
