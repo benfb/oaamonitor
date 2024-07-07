@@ -50,8 +50,8 @@
     <thead>
         <tr>
             <th>Player</th>
-            <th>Position</th>
             <th>Team</th>
+            <th>Position</th>
             <th>Difference</th>
         </tr>
     </thead>
@@ -59,8 +59,8 @@
         {{ range .SevenDayTrends }}
         <tr>
             <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
-            <td>{{ .Position }}</td>
             <td>{{ .Team }}</td>
+            <td>{{ .Position }}</td>
             <td>{{ .Difference }}</td>
         </tr>
         {{ end }}
@@ -72,8 +72,8 @@
     <thead>
         <tr>
             <th>Player</th>
-            <th>Position</th>
             <th>Team</th>
+            <th>Position</th>
             <th>Difference</th>
         </tr>
     </thead>
@@ -81,8 +81,8 @@
         {{ range .ThirtyDayTrends }}
         <tr>
             <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
-            <td>{{ .Position }}</td>
             <td>{{ .Team }}</td>
+            <td>{{ .Position }}</td>
             <td>{{ .Difference }}</td>
         </tr>
         {{ end }}
