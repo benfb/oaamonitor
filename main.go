@@ -172,7 +172,7 @@ func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 		TeamStats:        teamStats,
 		Teams:            teams,
 		SparklinesData:   playerStats,
-		CurrentYear:      models.GetCurrentYear(),
+		CurrentYear:      time.Now().Format("2006"),
 		TeamAbbreviation: models.GetTeamAbbreviation(capitalizedTeamName),
 	}
 	s.renderTemplate(w, "team.html", data)
@@ -216,7 +216,7 @@ func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sevenDayTrends, err := models.FetchNDayTrends(s.db, 7, 2)
+	sevenDayTrends, err := models.FetchNDayTrends(s.db, 7, 1)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

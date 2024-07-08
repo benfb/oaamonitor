@@ -268,11 +268,6 @@ func GetTeamAbbreviation(teamName string) string {
 	return ""
 }
 
-// GetCurrentYear returns the current year as a string
-func GetCurrentYear() string {
-	return time.Now().Format("2006")
-}
-
 // FetchPlayerDifferences retrieves the players with the biggest differences between the current and previous oaa totals from the database
 func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 	// Check if there are any differences for any player between the current and previous OAA totals

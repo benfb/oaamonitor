@@ -43,7 +43,8 @@ func GetEnvIntOrDefault(envVarName string, defaultValue int) int {
 	}
 	value, err := strconv.Atoi(valueStr)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("problem parsing env var %s: %v\n", envVarName, err)
+		return defaultValue
 	}
 	return value
 }
@@ -57,7 +58,8 @@ func GetEnvBoolOrDefault(envVarName string, defaultValue bool) bool {
 	}
 	value, err := strconv.ParseBool(valueStr)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("problem parsing env var %s: %v\n", envVarName, err)
+		return defaultValue
 	}
 	return value
 }
