@@ -216,13 +216,13 @@ func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sevenDayTrends, err := models.FetchSevenDayTrends(s.db)
+	sevenDayTrends, err := models.FetchNDayTrends(s.db, 7, 2)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	thirtyDayTrends, err := models.FetchThirtyDayTrends(s.db)
+	thirtyDayTrends, err := models.FetchNDayTrends(s.db, 30, 3)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -238,8 +238,8 @@ func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 		Players           []models.Player
 		Teams             []string
 		PlayerDifferences []models.PlayerDifference
-		SevenDayTrends    []models.PlayerTrend
-		ThirtyDayTrends   []models.PlayerTrend
+		SevenDayTrends    []models.PlayerDifference
+		ThirtyDayTrends   []models.PlayerDifference
 		DatabaseSize      string
 	}{
 		Title:             "Outs Above Average Monitor",
