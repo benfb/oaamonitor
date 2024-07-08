@@ -297,7 +297,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		go refresher.RunPeriodically(ctx, cfg, time.Duration(cfg.RefreshRate)*time.Second)
+		go refresher.RunPeriodically(ctx, cfg, time.Duration(cfg.RefreshRate)*time.Second, refresher.GetLatestOAA)
 	}()
 
 	<-stop

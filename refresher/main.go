@@ -18,7 +18,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func RunPeriodically(ctx context.Context, cfg *config.Config, interval time.Duration) {
+func RunPeriodically(ctx context.Context, cfg *config.Config, interval time.Duration, fn func(*config.Config) error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -28,7 +28,7 @@ func RunPeriodically(ctx context.Context, cfg *config.Config, interval time.Dura
 			return
 		case <-ticker.C:
 			log.Println("Refreshing data...")
-			if err := GetLatestOAA(cfg); err != nil {
+			if err := fn(cfg); err != nil {
 				log.Printf("Error refreshing data: %v", err)
 			}
 		}
