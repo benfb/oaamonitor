@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"fmt"
 	"sort"
 	"time"
 )
@@ -352,7 +353,7 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 }
 
 func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, error) {
-	rows, err := db.Query(`
+	query := fmt.Sprintf(`
 	WITH latest_positions AS (
 		SELECT player_id, primary_position,
 			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY date DESC) as rn
@@ -369,7 +370,7 @@ func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, er
 			o.date
 		FROM outs_above_average o
 		LEFT JOIN latest_positions lp ON o.player_id = lp.player_id AND lp.rn = 1
-		WHERE o.date >= (SELECT DATE(MAX(date), '? days') FROM outs_above_average)
+		WHERE o.date >= (SELECT DATE(MAX(date), '-%d days') FROM outs_above_average)
 	),
 	player_trends AS (
 		SELECT
@@ -391,10 +392,11 @@ func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, er
 		end_oaa,
 		(end_oaa - start_oaa) as difference
 	FROM player_trends
-	WHERE rn = 1 AND ABS(end_oaa - start_oaa) > ?
+	WHERE rn = 1 AND ABS(end_oaa - start_oaa) > %d
 	ORDER BY difference DESC
 	LIMIT 100;
 	`, daysAgo, threshold)
+	rows, err := db.Query(query)
 	if err != nil {
 		return nil, err
 	}
