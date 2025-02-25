@@ -66,7 +66,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
 }
 
-func (s *Server) renderTemplate(w http.ResponseWriter, tmplName string, data interface{}) {
+func (s *Server) renderTemplate(w http.ResponseWriter, tmplName string, data any) {
 	// Set the content type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
@@ -92,7 +92,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			results = append(results, player)
 		}
 	}
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"results": results,
 	})
 }
