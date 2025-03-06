@@ -146,7 +146,7 @@ func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 // handleTeamPage handles requests to the team page
 func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 	teamName := strings.ToLower(r.PathValue("id"))
-	teamName = normalizeTeamName(teamName)
+	teamName = NormalizeTeamName(teamName)
 
 	// Get requested season or use current year as default
 	seasonParam := r.URL.Query().Get("season")

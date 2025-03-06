@@ -123,8 +123,26 @@ func MapStatsByPlayerID(stats []Stat) []PlayerStats {
 				OAAHistory: []SparklinePoint{{Date: stat.Date, OAA: stat.OAA}},
 			}
 		} else {
-			entry.LatestOAA = stat.OAA
+			// Check if current stat's date is more recent than our stored latest date
+			latestDate := time.Time{}
+			if len(entry.OAAHistory) > 0 {
+				// Find the most recent date in history
+				for _, point := range entry.OAAHistory {
+					if point.Date.After(latestDate) {
+						latestDate = point.Date
+					}
+				}
+			}
+
+			// Update latest OAA if this is a more recent stat
+			if stat.Date.After(latestDate) {
+				entry.LatestOAA = stat.OAA
+			}
+
+			// Add to history
 			entry.OAAHistory = append(entry.OAAHistory, SparklinePoint{Date: stat.Date, OAA: stat.OAA})
+
+			// Use non-N/A position if available
 			if stat.Position != "N/A" {
 				entry.Position = stat.Position
 			}

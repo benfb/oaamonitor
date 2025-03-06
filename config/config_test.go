@@ -9,8 +9,8 @@ func TestGetEnvValue(t *testing.T) {
 	tests := []struct {
 		envVarName    string
 		envVarValue   string
-		defaultValue  interface{}
-		expectedValue interface{}
+		defaultValue  any
+		expectedValue any
 	}{
 		{"TEST_STRING", "test_value", "default_value", "test_value"},
 		{"TEST_STRING", "", "default_value", "default_value"},

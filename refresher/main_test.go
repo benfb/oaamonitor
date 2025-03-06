@@ -51,21 +51,6 @@ func TestRemoveBOM(t *testing.T) {
 	}
 }
 
-// func TestProcessRecord(t *testing.T) {
-// 	stmt, err := prepareInsertStatement(&sql.DB{})
-// 	if err != nil {
-// 		t.Errorf("Unexpected error: %v", err)
-// 	}
-// 	defer stmt.Close()
-// 	record := []string{"Hoerner, Nico", "123", "Cubs", "2024", "2B", "10", "13", "3", "7", "5", "-2", "5", "8", "78%", "72%", "6%"}
-// 	expectedFields := 16
-
-//		err = processRecord(stmt, record, expectedFields)
-//		if err != nil {
-//			t.Errorf("Unexpected error: %v", err)
-//		}
-//	}
-
 func TestRunPeriodically(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -89,7 +74,7 @@ func TestRunPeriodically(t *testing.T) {
 	go RunPeriodically(ctx, cfg, interval, fn)
 
 	// Wait for the function to be called 3 times
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		select {
 		case <-calls:
 			// Function called, continue

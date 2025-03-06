@@ -78,8 +78,8 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.db.Close()
 }
 
-// normalizeTeamName normalizes team names to a standard format
-func normalizeTeamName(teamName string) string {
+// NormalizeTeamName normalizes team names to a standard format
+func NormalizeTeamName(teamName string) string {
 	switch teamName {
 	case "diamondbacks", "dbacks":
 		return "d-backs"
