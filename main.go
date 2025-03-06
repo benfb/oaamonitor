@@ -18,8 +18,10 @@ import (
 	"time"
 
 	"github.com/benfb/oaamonitor/config"
+	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/models"
 	"github.com/benfb/oaamonitor/refresher"
+	"github.com/benfb/oaamonitor/server"
 	"github.com/benfb/oaamonitor/storage"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -306,7 +308,10 @@ func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// Load configuration
 	cfg := config.NewConfig()
+
+	// Download database if configured
 	if cfg.DownloadDatabase {
 		log.Println("Downloading database from Fly Storage")
 		if err := storage.DownloadDatabase(cfg.DatabasePath); err != nil {
@@ -314,36 +319,32 @@ func main() {
 		}
 	}
 
-	// Ensure data directory exists
-	dataDir := filepath.Dir(cfg.DatabasePath)
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		log.Fatalf("Failed to create data directory: %v", err)
-	}
-
-	db, err := sql.Open("sqlite3", cfg.DatabasePath+"?_journal_mode=WAL&_busy_timeout=5000")
+	// Initialize database connection
+	db, err := database.New(cfg.DatabasePath)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
 
-	server, err := NewServer(db, cfg)
+	// Create and initialize server
+	srv, err := server.New(db, cfg)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
 
-	srv := &http.Server{
+	// Start HTTP server in a goroutine
+	httpServer := &http.Server{
 		Addr:         ":" + config.GetEnvValue("PORT", "8080"),
-		Handler:      server,
+		Handler:      srv,
 		ReadTimeout:  time.Duration(cfg.RequestTimeout) * time.Second,
 		WriteTimeout: time.Duration(cfg.RequestTimeout) * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Start the server in a goroutine
 	go func() {
-		log.Println("Starting server on :8080")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("ListenAndServe(): %v", err)
+		log.Println("Starting server on port", httpServer.Addr)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTP server error: %v", err)
 		}
 	}()
 
@@ -357,25 +358,25 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		go refresher.RunPeriodically(ctx, cfg, time.Duration(cfg.RefreshRate)*time.Second, refresher.GetLatestOAA)
+		refresher.RunPeriodically(ctx, cfg, time.Duration(cfg.RefreshRate)*time.Second, refresher.GetLatestOAA)
 	}()
 
+	// Wait for interrupt signal
 	<-stop
 	log.Println("Shutting down server...")
 
 	// Cancel the refresh goroutine
 	cancel()
 
-	// Shut down the server
-	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+	// Shutdown the HTTP server
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Server shutdown error: %v", err)
 	}
 
-	// Wait for the refresh goroutine to finish
+	// Wait for goroutines to finish
 	wg.Wait()
-
 	log.Println("Server exited properly")
 }
 
