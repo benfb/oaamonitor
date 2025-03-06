@@ -1,5 +1,14 @@
 {{ template "header" . }}
 
+<div class="season-selector">
+    <label for="seasonSelect">Season: </label>
+    <select id="seasonSelect" onchange="changeSeason(this.value)">
+        {{range .Seasons}}
+            <option value="{{.}}" {{if eq . $.SelectedSeason}}selected{{end}}>{{.}}</option>
+        {{end}}
+    </select>
+</div>
+
 <canvas id="teamChart" style="padding: 10px"></canvas>
 
 <div class="button-container">
@@ -27,7 +36,7 @@
         <tbody>
             {{ range .SparklinesData }}
             <tr>
-                <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
+                <td><a href="/player/{{ .PlayerID }}?season={{ $.SelectedSeason }}">{{ .Name }}</a></td>
                 <td>{{ .Position }}</td>
                 <td>{{ .LatestOAA }}</td>
                 <td>
@@ -43,6 +52,10 @@
     var teamStats = {{ .TeamStats }};
     var teamName = "{{ .TeamName }}";
     var sparklinesData = {{ .SparklinesData }};
+    
+    function changeSeason(season) {
+        window.location.href = window.location.pathname + "?season=" + season;
+    }
 </script>
 
 <script src="/static/teamChart.js" defer></script>

@@ -1,5 +1,14 @@
 {{ template "header" . }}
 
+<div class="season-selector">
+    <label for="seasonSelect">Season: </label>
+    <select id="seasonSelect" onchange="changeSeason(this.value)">
+        {{range .Seasons}}
+            <option value="{{.}}" {{if eq . $.SelectedSeason}}selected{{end}}>{{.}}</option>
+        {{end}}
+    </select>
+</div>
+
 <canvas id="playerChart" style="padding: 10px"></canvas>
 
 <div class="button-container">
@@ -7,7 +16,7 @@
     <a
         id="savantLink"
         class="btn"
-        href="https://baseballsavant.mlb.com/visuals/statcast-infield-defense?type=Fielder&playerId={{ .PlayerID }}&startYear=2025&endYear=2025&result=&direction=&normalize=undefined&roles=&esrGT=0&esrLT=1&evGT=0&evLT=125&distGT=0&distLT=200&batside=&viz=intercept_fielder_starting_position_"
+        href="https://baseballsavant.mlb.com/visuals/statcast-infield-defense?type=Fielder&playerId={{ .PlayerID }}&startYear={{ .SelectedSeason }}&endYear={{ .SelectedSeason }}&result=&direction=&normalize=undefined&roles=&esrGT=0&esrLT=1&evGT=0&evLT=125&distGT=0&distLT=200&batside=&viz=intercept_fielder_starting_position_"
         >View on Baseball Savant</a
     >
 </div>
@@ -16,6 +25,10 @@
     var playerStats = {{ .PlayerStats }};
     var playerName = "{{ .PlayerName }}";
     var playerPosition = "{{ .PlayerPosition }}";
+    
+    function changeSeason(season) {
+        window.location.href = window.location.pathname + "?season=" + season;
+    }
 </script>
 
 <script src="/static/playerChart.js" defer></script>

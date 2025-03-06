@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -37,13 +38,13 @@ type PlayerDifference struct {
 	Difference  int    `json:"difference"`
 }
 
-func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
+func FetchTeamStats(db *sql.DB, teamName string, season int) ([]Stat, string, error) {
 	rows, err := db.Query(`
 	WITH latest_positions AS (
 		SELECT player_id, primary_position,
 			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY date DESC) as rn
 		FROM outs_above_average
-		WHERE LOWER(team) = ? AND primary_position IS NOT NULL
+		WHERE LOWER(team) = ? AND primary_position IS NOT NULL AND strftime('%Y', date) = ?
 	)
 	SELECT
 		o.player_id,
@@ -57,9 +58,9 @@ func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 		o.diff_success_rate
 	FROM outs_above_average o
 	LEFT JOIN latest_positions lp ON o.player_id = lp.player_id AND lp.rn = 1
-	WHERE LOWER(o.team) = ?
+	WHERE LOWER(o.team) = ? AND strftime('%Y', o.date) = ?
 	GROUP BY o.player_id, o.date
-	ORDER BY o.last_name, o.date;`, teamName, teamName)
+	ORDER BY o.last_name, o.date;`, teamName, strconv.Itoa(season), teamName, strconv.Itoa(season))
 	if err != nil {
 		return nil, "", err
 	}
@@ -77,6 +78,19 @@ func FetchTeamStats(db *sql.DB, teamName string) ([]Stat, string, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return nil, "", err
+	}
+
+	// If no data found for the specified season, try to get team name from any season
+	if len(stats) == 0 {
+		var teamNameResult string
+		err := db.QueryRow(`
+			SELECT team FROM outs_above_average 
+			WHERE LOWER(team) = ? 
+			LIMIT 1
+		`, teamName).Scan(&teamNameResult)
+		if err == nil {
+			capitalizedTeamName = teamNameResult
+		}
 	}
 
 	return stats, capitalizedTeamName, nil
@@ -158,7 +172,7 @@ func FetchPlayers(db *sql.DB) ([]Player, error) {
 }
 
 // FetchPlayerStats retrieves statistics for a specific player from the database
-func FetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, string, error) {
+func FetchPlayerStats(db *sql.DB, playerID int, season int) ([]Stat, string, string, error) {
 	rows, err := db.Query(`
 	SELECT
 		player_id,
@@ -171,8 +185,8 @@ func FetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, string, error) 
 		estimated_success_rate,
 		diff_success_rate
 	FROM outs_above_average
-	WHERE player_id = ?
-	ORDER BY player_id, date;`, playerID)
+	WHERE player_id = ? AND strftime('%Y', date) = ?
+	ORDER BY player_id, date;`, playerID, strconv.Itoa(season))
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -194,6 +208,22 @@ func FetchPlayerStats(db *sql.DB, playerID int) ([]Stat, string, string, error) 
 	}
 	if err := rows.Err(); err != nil {
 		return nil, "", "", err
+	}
+
+	// If no data found for the specified season, return empty slice but not an error
+	if len(stats) == 0 {
+		// Try to get player name and position from any season
+		var name, position string
+		err := db.QueryRow(`
+			SELECT full_name, COALESCE(primary_position, 'N/A')
+			FROM outs_above_average
+			WHERE player_id = ?
+			ORDER BY date DESC LIMIT 1
+		`, playerID).Scan(&name, &position)
+		if err != nil {
+			return []Stat{}, "", "N/A", nil
+		}
+		return []Stat{}, name, position, nil
 	}
 
 	// If no valid position was found, set it to "N/A"
@@ -410,4 +440,33 @@ func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, er
 	}
 
 	return trends, nil
+}
+
+// FetchSeasons retrieves distinct seasons (years) from the database
+func FetchSeasons(db *sql.DB) ([]int, error) {
+	rows, err := db.Query("SELECT DISTINCT strftime('%Y', date) as year FROM outs_above_average ORDER BY year DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var seasons []int
+	for rows.Next() {
+		var yearStr string
+		if err := rows.Scan(&yearStr); err != nil {
+			return nil, err
+		}
+
+		year, err := strconv.Atoi(yearStr)
+		if err != nil {
+			return nil, err
+		}
+
+		seasons = append(seasons, year)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return seasons, nil
 }

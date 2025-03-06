@@ -105,7 +105,28 @@ func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	playerStats, playerName, playerPosition, err := models.FetchPlayerStats(s.db, playerID)
+	// Get requested season or use current year as default
+	seasonParam := r.URL.Query().Get("season")
+	selectedSeason := time.Now().Year()
+	if seasonParam != "" {
+		if season, err := strconv.Atoi(seasonParam); err == nil {
+			selectedSeason = season
+		}
+	}
+
+	// Get available seasons
+	seasons, err := models.FetchSeasons(s.db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Default to most recent season if no specific selection
+	if len(seasons) > 0 && seasonParam == "" {
+		selectedSeason = seasons[0]
+	}
+
+	playerStats, playerName, playerPosition, err := models.FetchPlayerStats(s.db, playerID, selectedSeason)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -129,6 +150,8 @@ func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 		PlayerPosition string
 		PlayerStats    []models.Stat
 		Teams          []string
+		Seasons        []int
+		SelectedSeason int
 	}{
 		Title:          title,
 		PlayerID:       playerID,
@@ -136,6 +159,8 @@ func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 		PlayerPosition: playerPosition,
 		PlayerStats:    playerStats,
 		Teams:          teams,
+		Seasons:        seasons,
+		SelectedSeason: selectedSeason,
 	}
 
 	s.renderTemplate(w, "player.html", data)
@@ -144,7 +169,29 @@ func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 	teamName := strings.ToLower(r.PathValue("id"))
 	teamName = normalizeTeamName(teamName)
-	teamStats, capitalizedTeamName, err := models.FetchTeamStats(s.db, teamName)
+
+	// Get requested season or use current year as default
+	seasonParam := r.URL.Query().Get("season")
+	selectedSeason := time.Now().Year()
+	if seasonParam != "" {
+		if season, err := strconv.Atoi(seasonParam); err == nil {
+			selectedSeason = season
+		}
+	}
+
+	// Get available seasons
+	seasons, err := models.FetchSeasons(s.db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Default to most recent season if no specific selection
+	if len(seasons) > 0 && seasonParam == "" {
+		selectedSeason = seasons[0]
+	}
+
+	teamStats, capitalizedTeamName, err := models.FetchTeamStats(s.db, teamName, selectedSeason)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -166,14 +213,18 @@ func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 		SparklinesData   []models.PlayerStats
 		CurrentYear      string
 		TeamAbbreviation string
+		Seasons          []int
+		SelectedSeason   int
 	}{
 		Title:            fmt.Sprintf("%s Outs Above Average", capitalizedTeamName),
 		TeamName:         capitalizedTeamName,
 		TeamStats:        teamStats,
 		Teams:            teams,
 		SparklinesData:   playerStats,
-		CurrentYear:      time.Now().Format("2006"),
+		CurrentYear:      strconv.Itoa(selectedSeason),
 		TeamAbbreviation: models.GetTeamAbbreviation(capitalizedTeamName),
+		Seasons:          seasons,
+		SelectedSeason:   selectedSeason,
 	}
 	s.renderTemplate(w, "team.html", data)
 }
