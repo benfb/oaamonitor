@@ -314,7 +314,13 @@ func main() {
 		}
 	}
 
-	db, err := sql.Open("sqlite3", cfg.DatabasePath)
+	// Ensure data directory exists
+	dataDir := filepath.Dir(cfg.DatabasePath)
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		log.Fatalf("Failed to create data directory: %v", err)
+	}
+
+	db, err := sql.Open("sqlite3", cfg.DatabasePath+"?_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
@@ -326,8 +332,11 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: server,
+		Addr:         ":" + config.GetEnvValue("PORT", "8080"),
+		Handler:      server,
+		ReadTimeout:  time.Duration(cfg.RequestTimeout) * time.Second,
+		WriteTimeout: time.Duration(cfg.RequestTimeout) * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	// Start the server in a goroutine

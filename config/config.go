@@ -12,54 +12,47 @@ type Config struct {
 	DownloadDatabase bool
 	RefreshRate      int
 	UploadDatabase   bool
+	RequestTimeout   int
 }
 
 // NewConfig returns a new Config struct.
 func NewConfig() *Config {
 	return &Config{
-		DatabasePath:     GetEnvStringOrDefault("DATABASE_PATH", "./data/oaamonitor.db"),
-		DownloadDatabase: GetEnvBoolOrDefault("DOWNLOAD_DATABASE", false),
-		RefreshRate:      GetEnvIntOrDefault("REFRESH_RATE", 3600),
-		UploadDatabase:   GetEnvBoolOrDefault("UPLOAD_DATABASE", false),
+		DatabasePath:     GetEnvValue("DATABASE_PATH", "./data/oaamonitor.db"),
+		DownloadDatabase: GetEnvValue("DOWNLOAD_DATABASE", false),
+		RefreshRate:      GetEnvValue("REFRESH_RATE", 3600),
+		UploadDatabase:   GetEnvValue("UPLOAD_DATABASE", false),
+		RequestTimeout:   GetEnvValue("REQUEST_TIMEOUT", 30),
 	}
 }
 
-// GetEnvStringOrDefault takes an environment variable name and a default value,
+// GetEnvValue is a generic function that takes an environment variable name and a default value,
 // and returns the value of the environment variable if it is present, or the default value otherwise.
-func GetEnvStringOrDefault(envVarName, defaultValue string) string {
-	value := os.Getenv(envVarName)
-	if value == "" {
-		return defaultValue
-	}
-	return value
-}
-
-// GetEnvIntOrDefault takes an environment variable name and a default value,
-// and returns the value of the environment variable as an integer if it is present, or the default value otherwise.
-func GetEnvIntOrDefault(envVarName string, defaultValue int) int {
+func GetEnvValue[T string | int | bool](envVarName string, defaultValue T) T {
 	valueStr := os.Getenv(envVarName)
 	if valueStr == "" {
 		return defaultValue
 	}
-	value, err := strconv.Atoi(valueStr)
-	if err != nil {
-		log.Printf("problem parsing env var %s: %v\n", envVarName, err)
-		return defaultValue
-	}
-	return value
-}
 
-// GetEnvBoolOrDefault takes an environment variable name and a default value,
-// and returns the value of the environment variable as a boolean if it is present, or the default value otherwise.
-func GetEnvBoolOrDefault(envVarName string, defaultValue bool) bool {
-	valueStr := os.Getenv(envVarName)
-	if valueStr == "" {
-		return defaultValue
+	var result T
+	var err error
+
+	switch any(defaultValue).(type) {
+	case string:
+		result = any(valueStr).(T)
+	case int:
+		var intVal int
+		intVal, err = strconv.Atoi(valueStr)
+		result = any(intVal).(T)
+	case bool:
+		var boolVal bool
+		boolVal, err = strconv.ParseBool(valueStr)
+		result = any(boolVal).(T)
 	}
-	value, err := strconv.ParseBool(valueStr)
+
 	if err != nil {
 		log.Printf("problem parsing env var %s: %v\n", envVarName, err)
 		return defaultValue
 	}
-	return value
+	return result
 }
