@@ -15,7 +15,7 @@ import (
 
 	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/storage"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func RunPeriodically(ctx context.Context, cfg *config.Config, interval time.Duration, fn func(*config.Config) error) {
@@ -106,7 +106,7 @@ func processCSV(filepath, dbPath string) error {
 		return fmt.Errorf("unexpected number of header fields: got %d, want %d", len(header), expectedFields)
 	}
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return err
 	}
