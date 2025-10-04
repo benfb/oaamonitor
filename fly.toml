@@ -18,9 +18,8 @@ primary_region = 'bos'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = false
-  auto_start_machines = false
-  min_machines_running = 1
+  auto_stop_machines = true
+  auto_start_machines = true
 
 [[vm]]
   size = 'shared-cpu-1x'
