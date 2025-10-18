@@ -1,1 +1,6 @@
 data/
+*.db
+.env
+.DS_Store
+*.log
+run-app

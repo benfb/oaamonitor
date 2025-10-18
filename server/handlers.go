@@ -15,6 +15,31 @@ import (
 	"github.com/benfb/oaamonitor/models"
 )
 
+// parseSeasonParam extracts and parses the season query parameter, returning the selected season
+// and available seasons. If no season is specified, it defaults to the most recent season.
+func (s *Server) parseSeasonParam(r *http.Request) (selectedSeason int, seasons []int, err error) {
+	seasonParam := r.URL.Query().Get("season")
+	selectedSeason = time.Now().Year()
+
+	if seasonParam != "" {
+		if season, parseErr := strconv.Atoi(seasonParam); parseErr == nil {
+			selectedSeason = season
+		}
+	}
+
+	seasons, err = models.FetchSeasons(s.db.DB)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	// Default to most recent season if no specific selection
+	if len(seasons) > 0 && seasonParam == "" {
+		selectedSeason = seasons[0]
+	}
+
+	return selectedSeason, seasons, nil
+}
+
 // handleIndexPage handles requests to the home page
 func (s *Server) handleIndexPage(w http.ResponseWriter, r *http.Request) {
 	players, err := models.FetchPlayers(s.db.DB)
@@ -82,25 +107,10 @@ func (s *Server) handlePlayerPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get requested season or use current year as default
-	seasonParam := r.URL.Query().Get("season")
-	selectedSeason := time.Now().Year()
-	if seasonParam != "" {
-		if season, err := strconv.Atoi(seasonParam); err == nil {
-			selectedSeason = season
-		}
-	}
-
-	// Get available seasons
-	seasons, err := models.FetchSeasons(s.db.DB)
+	selectedSeason, seasons, err := s.parseSeasonParam(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	// Default to most recent season if no specific selection
-	if len(seasons) > 0 && seasonParam == "" {
-		selectedSeason = seasons[0]
 	}
 
 	playerStats, playerName, playerPosition, err := models.FetchPlayerStats(s.db.DB, playerID, selectedSeason)
@@ -148,25 +158,10 @@ func (s *Server) handleTeamPage(w http.ResponseWriter, r *http.Request) {
 	teamName := strings.ToLower(r.PathValue("id"))
 	teamName = NormalizeTeamName(teamName)
 
-	// Get requested season or use current year as default
-	seasonParam := r.URL.Query().Get("season")
-	selectedSeason := time.Now().Year()
-	if seasonParam != "" {
-		if season, err := strconv.Atoi(seasonParam); err == nil {
-			selectedSeason = season
-		}
-	}
-
-	// Get available seasons
-	seasons, err := models.FetchSeasons(s.db.DB)
+	selectedSeason, seasons, err := s.parseSeasonParam(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	// Default to most recent season if no specific selection
-	if len(seasons) > 0 && seasonParam == "" {
-		selectedSeason = seasons[0]
 	}
 
 	teamStats, capitalizedTeamName, err := models.FetchTeamStats(s.db.DB, teamName, selectedSeason)

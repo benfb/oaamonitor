@@ -64,7 +64,7 @@ func TestRunPeriodically(t *testing.T) {
 	calls := make(chan int)
 
 	// Define the function to be called by RunPeriodically
-	fn := func(cfg *config.Config) error {
+	fn := func(ctx context.Context, cfg *config.Config) error {
 		// Increment the counter
 		calls <- 1
 		return nil

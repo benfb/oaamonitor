@@ -23,7 +23,7 @@ func main() {
 	// Download database if configured
 	if cfg.DownloadDatabase {
 		log.Println("Downloading database from Fly Storage")
-		if err := storage.DownloadDatabase(cfg.DatabasePath); err != nil {
+		if err := storage.DownloadDatabase(context.Background(), cfg.DatabasePath); err != nil {
 			log.Fatalf("Failed to download database: %v", err)
 		}
 	}

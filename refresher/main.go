@@ -18,7 +18,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func RunPeriodically(ctx context.Context, cfg *config.Config, interval time.Duration, fn func(*config.Config) error) {
+func RunPeriodically(ctx context.Context, cfg *config.Config, interval time.Duration, fn func(context.Context, *config.Config) error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -28,14 +28,14 @@ func RunPeriodically(ctx context.Context, cfg *config.Config, interval time.Dura
 			return
 		case <-ticker.C:
 			log.Println("Refreshing data...")
-			if err := fn(cfg); err != nil {
+			if err := fn(ctx, cfg); err != nil {
 				log.Printf("Error refreshing data: %v", err)
 			}
 		}
 	}
 }
 
-func GetLatestOAA(cfg *config.Config) error {
+func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 	currentYear := time.Now().Year()
 	url := fmt.Sprintf("https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear=%d&endYear=%d&split=yes&team=&range=year&min=10&pos=&roles=&viz=hide&csv=true", currentYear, currentYear)
 
@@ -52,7 +52,7 @@ func GetLatestOAA(cfg *config.Config) error {
 	log.Println("CSV data successfully inserted or updated in the database.")
 
 	if cfg.UploadDatabase {
-		if err := storage.UploadDatabase(cfg.DatabasePath); err != nil {
+		if err := storage.UploadDatabase(ctx, cfg.DatabasePath); err != nil {
 			return fmt.Errorf("failed to upload database: %v", err)
 		}
 		log.Println("Database successfully uploaded to Fly Storage.")
@@ -124,7 +124,6 @@ func processCSV(filepath, dbPath string) error {
 
 	for {
 		record, err := reader.Read()
-		log.Println(record)
 		if err == io.EOF {
 			break
 		}

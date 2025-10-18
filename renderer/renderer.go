@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 )
 
 // Renderer handles template rendering
@@ -32,16 +33,18 @@ func New() (*Renderer, error) {
 
 // Render renders a template with the given data
 func (r *Renderer) Render(w http.ResponseWriter, tmplName string, data interface{}) {
-	// Set content type
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	// Execute template
-	err := r.templates.ExecuteTemplate(w, tmplName, data)
+	// Execute template to a buffer first to catch errors before writing to response
+	buf := new(strings.Builder)
+	err := r.templates.ExecuteTemplate(buf, tmplName, data)
 	if err != nil {
 		log.Printf("Error rendering template %s: %v", tmplName, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+
+	// Set content type and write the buffered output
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(buf.String()))
 }
 
 // ReloadTemplates reloads all templates
