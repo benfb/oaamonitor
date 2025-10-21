@@ -157,8 +157,25 @@ func createTable(db *sql.DB) error {
 		date DATE DEFAULT CURRENT_DATE,
 		UNIQUE(player_id, date)
 	);`
-	_, err := db.Exec(createTableSQL)
-	return err
+	if _, err := db.Exec(createTableSQL); err != nil {
+		return err
+	}
+
+	// Create indexes for common query patterns
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_date ON outs_above_average(date)`,
+		`CREATE INDEX IF NOT EXISTS idx_team_lower ON outs_above_average(LOWER(team))`,
+		`CREATE INDEX IF NOT EXISTS idx_name ON outs_above_average(last_name, first_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_team_date ON outs_above_average(LOWER(team), date)`,
+	}
+
+	for _, indexSQL := range indexes {
+		if _, err := db.Exec(indexSQL); err != nil {
+			return fmt.Errorf("failed to create index: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func prepareInsertStatement(db *sql.DB) (*sql.Stmt, error) {

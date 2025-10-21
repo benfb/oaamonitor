@@ -277,9 +277,9 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
 		json.NewEncoder(w).Encode(map[string]string{
-			"status":         "already_running",
-			"message":        "Refresh already in progress",
-			"last_refresh":   lastRefresh,
+			"status":       "already_running",
+			"message":      "Refresh already in progress",
+			"last_refresh": lastRefresh,
 		})
 		return
 	}
