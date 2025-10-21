@@ -1,7 +1,10 @@
 package server
 
 import (
+	"encoding/json"
+	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -153,4 +156,246 @@ func TestParseSeasonParam(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandleRefresh_MissingToken(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	cfg := &config.Config{
+		DatabasePath: ":memory:",
+	}
+
+	// Create server struct directly to avoid template loading
+	s := &Server{
+		db:     db,
+		config: cfg,
+	}
+
+	// Set a dummy token for the test
+	os.Setenv("REFRESH_TOKEN", "test-token-123")
+	defer os.Unsetenv("REFRESH_TOKEN")
+
+	req := httptest.NewRequest(http.MethodPost, "/refresh", nil)
+	w := httptest.NewRecorder()
+
+	s.handleRefresh(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Expected status %d, got %d", http.StatusUnauthorized, w.Code)
+	}
+}
+
+func TestHandleRefresh_InvalidToken(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	cfg := &config.Config{
+		DatabasePath: ":memory:",
+	}
+
+	// Create server struct directly to avoid template loading
+	s := &Server{
+		db:     db,
+		config: cfg,
+	}
+
+	// Set a dummy token for the test
+	os.Setenv("REFRESH_TOKEN", "correct-token")
+	defer os.Unsetenv("REFRESH_TOKEN")
+
+	req := httptest.NewRequest(http.MethodPost, "/refresh", nil)
+	req.Header.Set("Authorization", "Bearer wrong-token")
+	w := httptest.NewRecorder()
+
+	s.handleRefresh(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Expected status %d, got %d", http.StatusUnauthorized, w.Code)
+	}
+}
+
+func TestHandleRefresh_NoTokenConfigured(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	cfg := &config.Config{
+		DatabasePath: ":memory:",
+	}
+
+	// Create server struct directly to avoid template loading
+	s := &Server{
+		db:     db,
+		config: cfg,
+	}
+
+	// Ensure no token is set
+	os.Unsetenv("REFRESH_TOKEN")
+
+	req := httptest.NewRequest(http.MethodPost, "/refresh", nil)
+	req.Header.Set("Authorization", "Bearer some-token")
+	w := httptest.NewRecorder()
+
+	s.handleRefresh(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
+func TestHandleRefresh_ValidToken(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	// Create the required table structure
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS outs_above_average (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			player_id INTEGER,
+			first_name TEXT,
+			last_name TEXT,
+			full_name TEXT,
+			team TEXT,
+			primary_position TEXT,
+			oaa INTEGER,
+			actual_success_rate REAL,
+			estimated_success_rate REAL,
+			diff_success_rate REAL,
+			date DATE DEFAULT CURRENT_DATE,
+			UNIQUE(player_id, date)
+		)
+	`)
+	if err != nil {
+		t.Fatalf("Failed to create table: %v", err)
+	}
+
+	cfg := &config.Config{
+		DatabasePath:   ":memory:",
+		UploadDatabase: false, // Don't try to upload during tests
+	}
+
+	// Create server struct directly to avoid template loading
+	s := &Server{
+		db:     db,
+		config: cfg,
+	}
+
+	// Set a test token
+	os.Setenv("REFRESH_TOKEN", "test-token-123")
+	defer os.Unsetenv("REFRESH_TOKEN")
+
+	req := httptest.NewRequest(http.MethodPost, "/refresh", nil)
+	req.Header.Set("Authorization", "Bearer test-token-123")
+	w := httptest.NewRecorder()
+
+	s.handleRefresh(w, req)
+
+	// Should return 202 Accepted since it's async
+	if w.Code != http.StatusAccepted {
+		t.Errorf("Expected status %d, got %d", http.StatusAccepted, w.Code)
+	}
+
+	// Parse response
+	var response map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if response["status"] != "accepted" {
+		t.Errorf("Expected status 'accepted', got '%s'", response["status"])
+	}
+
+	// Give the background goroutine a moment to start
+	time.Sleep(100 * time.Millisecond)
+}
+
+func TestHandleRefresh_ConcurrentRequests(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	defer db.Close()
+
+	// Create the required table structure
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS outs_above_average (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			player_id INTEGER,
+			first_name TEXT,
+			last_name TEXT,
+			full_name TEXT,
+			team TEXT,
+			primary_position TEXT,
+			oaa INTEGER,
+			actual_success_rate REAL,
+			estimated_success_rate REAL,
+			diff_success_rate REAL,
+			date DATE DEFAULT CURRENT_DATE,
+			UNIQUE(player_id, date)
+		)
+	`)
+	if err != nil {
+		t.Fatalf("Failed to create table: %v", err)
+	}
+
+	cfg := &config.Config{
+		DatabasePath:   ":memory:",
+		UploadDatabase: false,
+	}
+
+	// Create server struct directly to avoid template loading
+	s := &Server{
+		db:     db,
+		config: cfg,
+	}
+
+	os.Setenv("REFRESH_TOKEN", "test-token-123")
+	defer os.Unsetenv("REFRESH_TOKEN")
+
+	// First request - should be accepted
+	req1 := httptest.NewRequest(http.MethodPost, "/refresh", nil)
+	req1.Header.Set("Authorization", "Bearer test-token-123")
+	w1 := httptest.NewRecorder()
+
+	s.handleRefresh(w1, req1)
+
+	if w1.Code != http.StatusAccepted {
+		t.Errorf("First request: expected status %d, got %d", http.StatusAccepted, w1.Code)
+	}
+
+	// Second request immediately after - should be rejected
+	req2 := httptest.NewRequest(http.MethodPost, "/refresh", nil)
+	req2.Header.Set("Authorization", "Bearer test-token-123")
+	w2 := httptest.NewRecorder()
+
+	s.handleRefresh(w2, req2)
+
+	if w2.Code != http.StatusTooManyRequests {
+		t.Errorf("Second request: expected status %d, got %d", http.StatusTooManyRequests, w2.Code)
+	}
+
+	// Parse response
+	var response map[string]string
+	if err := json.NewDecoder(w2.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if response["status"] != "already_running" {
+		t.Errorf("Expected status 'already_running', got '%s'", response["status"])
+	}
+
+	// Give the background goroutine time to complete
+	time.Sleep(100 * time.Millisecond)
 }

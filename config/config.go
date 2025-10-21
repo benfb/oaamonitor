@@ -10,7 +10,6 @@ import (
 type Config struct {
 	DatabasePath     string
 	DownloadDatabase bool
-	RefreshRate      int
 	UploadDatabase   bool
 	RequestTimeout   int
 }
@@ -20,7 +19,6 @@ func NewConfig() *Config {
 	return &Config{
 		DatabasePath:     GetEnvValue("DATABASE_PATH", "./data/oaamonitor.db"),
 		DownloadDatabase: GetEnvValue("DOWNLOAD_DATABASE", false),
-		RefreshRate:      GetEnvValue("REFRESH_RATE", 3600),
 		UploadDatabase:   GetEnvValue("UPLOAD_DATABASE", false),
 		RequestTimeout:   GetEnvValue("REQUEST_TIMEOUT", 30),
 	}

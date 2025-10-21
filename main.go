@@ -6,12 +6,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"time"
 
 	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/database"
-	"github.com/benfb/oaamonitor/refresher"
 	"github.com/benfb/oaamonitor/server"
 	"github.com/benfb/oaamonitor/storage"
 )
@@ -20,11 +18,15 @@ func main() {
 	// Load configuration
 	cfg := config.NewConfig()
 
-	// Download database if configured
+	// Download database if configured and file doesn't exist
 	if cfg.DownloadDatabase {
-		log.Println("Downloading database from Fly Storage")
-		if err := storage.DownloadDatabase(context.Background(), cfg.DatabasePath); err != nil {
-			log.Fatalf("Failed to download database: %v", err)
+		if _, err := os.Stat(cfg.DatabasePath); os.IsNotExist(err) {
+			log.Println("Database not found locally, downloading from Fly Storage")
+			if err := storage.DownloadDatabase(context.Background(), cfg.DatabasePath); err != nil {
+				log.Fatalf("Failed to download database: %v", err)
+			}
+		} else {
+			log.Println("Database already exists locally, skipping download")
 		}
 	}
 
@@ -61,21 +63,9 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 
-	// Start periodic refresh in a goroutine
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		refresher.RunPeriodically(ctx, cfg, time.Duration(cfg.RefreshRate)*time.Second, refresher.GetLatestOAA)
-	}()
-
 	// Wait for interrupt signal
 	<-stop
 	log.Println("Shutting down server...")
-
-	// Cancel the refresh goroutine
-	cancel()
 
 	// Shutdown the HTTP server
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -84,7 +74,5 @@ func main() {
 		log.Fatalf("Server shutdown error: %v", err)
 	}
 
-	// Wait for goroutines to finish
-	wg.Wait()
 	log.Println("Server exited properly")
 }

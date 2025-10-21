@@ -1,0 +1,33 @@
+name: Refresh OAA Data
+
+on:
+  schedule:
+    # Run 4 times daily at 6am, 12pm, 6pm, 12am EST (10, 16, 22, 4 UTC)
+    - cron: '0 10 * * *'  # 6am EST
+    - cron: '0 16 * * *'  # 12pm EST
+    - cron: '0 22 * * *'  # 6pm EST
+    - cron: '0 4 * * *'   # 12am EST
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger data refresh
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer ${{ secrets.REFRESH_TOKEN }}" \
+            https://oaamonitor.fly.dev/refresh)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" -ne 200 ]; then
+            echo "Error: Refresh failed with status $http_code"
+            exit 1
+          fi
+
+          echo "Data refresh completed successfully"

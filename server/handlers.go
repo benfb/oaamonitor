@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/models"
+	"github.com/benfb/oaamonitor/refresher"
 )
 
 // parseSeasonParam extracts and parses the season query parameter, returning the selected season
@@ -239,4 +242,76 @@ func (s *Server) handleDatabaseDownload(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Error occurred during file download", http.StatusInternalServerError)
 		return
 	}
+}
+
+// handleRefresh handles requests to refresh the OAA data from Baseball Savant
+// The refresh runs asynchronously and returns immediately with 202 Accepted
+func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
+	// Check for bearer token authentication
+	authHeader := r.Header.Get("Authorization")
+	expectedToken := os.Getenv("REFRESH_TOKEN")
+
+	if expectedToken == "" {
+		log.Println("REFRESH_TOKEN not configured")
+		http.Error(w, "Refresh endpoint not configured", http.StatusInternalServerError)
+		return
+	}
+
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	// Use constant-time comparison to prevent timing attacks
+	if subtle.ConstantTimeCompare([]byte(token), []byte(expectedToken)) != 1 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if a refresh is already in progress
+	s.refreshMutex.Lock()
+	if s.refreshing {
+		lastRefresh := s.lastRefreshAt.Format(time.RFC3339)
+		s.refreshMutex.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":         "already_running",
+			"message":        "Refresh already in progress",
+			"last_refresh":   lastRefresh,
+		})
+		return
+	}
+	s.refreshing = true
+	s.refreshMutex.Unlock()
+
+	// Start refresh asynchronously
+	go func() {
+		defer func() {
+			s.refreshMutex.Lock()
+			s.refreshing = false
+			s.lastRefreshAt = time.Now()
+			s.refreshMutex.Unlock()
+		}()
+
+		// Create a context with timeout for the refresh operation
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		log.Println("Background refresh triggered via API")
+		if err := refresher.GetLatestOAA(ctx, s.config); err != nil {
+			log.Printf("Error during background refresh: %v", err)
+			return
+		}
+		log.Println("Background refresh completed successfully")
+	}()
+
+	// Return immediately with 202 Accepted
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "accepted",
+		"message": "Refresh started in background",
+	})
 }

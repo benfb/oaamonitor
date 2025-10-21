@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/benfb/oaamonitor/config"
@@ -14,10 +15,13 @@ import (
 
 // Server represents the HTTP server
 type Server struct {
-	db       *database.DB
-	router   *http.ServeMux
-	renderer *renderer.Renderer
-	config   *config.Config
+	db            *database.DB
+	router        *http.ServeMux
+	renderer      *renderer.Renderer
+	config        *config.Config
+	refreshMutex  sync.Mutex
+	refreshing    bool
+	lastRefreshAt time.Time
 }
 
 // New creates a new Server instance
@@ -51,6 +55,7 @@ func (s *Server) registerRoutes() {
 	s.router.HandleFunc("GET /team/{id}", s.handleTeamPage)
 	s.router.HandleFunc("GET /search", s.handleSearch)
 	s.router.HandleFunc("GET /download", s.handleDatabaseDownload)
+	s.router.HandleFunc("POST /refresh", s.handleRefresh)
 	s.router.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 }
 
