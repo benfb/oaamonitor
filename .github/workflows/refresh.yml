@@ -25,9 +25,10 @@ jobs:
           echo "HTTP Status: $http_code"
           echo "Response: $body"
 
-          if [ "$http_code" -ne 200 ]; then
+          # Accept 202 (Accepted) since refresh runs asynchronously
+          if [ "$http_code" -ne 200 ] && [ "$http_code" -ne 202 ]; then
             echo "Error: Refresh failed with status $http_code"
             exit 1
           fi
 
-          echo "Data refresh completed successfully"
+          echo "Data refresh triggered successfully"
