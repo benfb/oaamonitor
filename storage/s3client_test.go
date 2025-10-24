@@ -3,11 +3,24 @@ package storage
 import (
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func newResponse(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}
+}
 
 func TestNewS3Client(t *testing.T) {
 	client := NewS3Client("access-key", "secret-key", "us-east-1", "https://s3.amazonaws.com")
@@ -24,52 +37,49 @@ func TestNewS3Client(t *testing.T) {
 }
 
 func TestS3ClientGetObject(t *testing.T) {
-	// Create mock S3 server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify request method
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	client := NewS3Client("test-access-key", "test-secret-key", "us-east-1", "https://example.com")
+	client.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			// Verify request method
+			if req.Method != "GET" {
+				t.Errorf("Expected GET request, got %s", req.Method)
+			}
 
-		// Verify path
-		expectedPath := "/test-bucket/test-key.db"
-		if r.URL.Path != expectedPath {
-			t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
-		}
+			// Verify path
+			expectedPath := "/test-bucket/test-key.db"
+			if req.URL.Path != expectedPath {
+				t.Errorf("Expected path %s, got %s", expectedPath, req.URL.Path)
+			}
 
-		// Verify AWS SigV4 headers are present
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Missing Authorization header")
-		}
-		if r.Header.Get("X-Amz-Date") == "" {
-			t.Error("Missing X-Amz-Date header")
-		}
-		if r.Header.Get("X-Amz-Content-Sha256") == "" {
-			t.Error("Missing X-Amz-Content-Sha256 header")
-		}
+			// Verify AWS SigV4 headers are present
+			if req.Header.Get("Authorization") == "" {
+				t.Error("Missing Authorization header")
+			}
+			if req.Header.Get("X-Amz-Date") == "" {
+				t.Error("Missing X-Amz-Date header")
+			}
+			if req.Header.Get("X-Amz-Content-Sha256") == "" {
+				t.Error("Missing X-Amz-Content-Sha256 header")
+			}
 
-		// Verify Authorization header format
-		authHeader := r.Header.Get("Authorization")
-		if !strings.HasPrefix(authHeader, "AWS4-HMAC-SHA256") {
-			t.Errorf("Invalid Authorization header format: %s", authHeader)
-		}
-		if !strings.Contains(authHeader, "Credential=") {
-			t.Error("Authorization header missing Credential")
-		}
-		if !strings.Contains(authHeader, "SignedHeaders=") {
-			t.Error("Authorization header missing SignedHeaders")
-		}
-		if !strings.Contains(authHeader, "Signature=") {
-			t.Error("Authorization header missing Signature")
-		}
+			// Verify Authorization header format
+			authHeader := req.Header.Get("Authorization")
+			if !strings.HasPrefix(authHeader, "AWS4-HMAC-SHA256") {
+				t.Errorf("Invalid Authorization header format: %s", authHeader)
+			}
+			if !strings.Contains(authHeader, "Credential=") {
+				t.Error("Authorization header missing Credential")
+			}
+			if !strings.Contains(authHeader, "SignedHeaders=") {
+				t.Error("Authorization header missing SignedHeaders")
+			}
+			if !strings.Contains(authHeader, "Signature=") {
+				t.Error("Authorization header missing Signature")
+			}
 
-		// Return mock file content
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test database content"))
-	}))
-	defer server.Close()
-
-	client := NewS3Client("test-access-key", "test-secret-key", "us-east-1", server.URL)
+			return newResponse(http.StatusOK, "test database content"), nil
+		}),
+	}
 
 	// Test GetObject
 	resp, err := client.GetObject("test-bucket", "test-key.db")
@@ -91,13 +101,12 @@ func TestS3ClientGetObject(t *testing.T) {
 }
 
 func TestS3ClientGetObjectNotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("NoSuchKey"))
-	}))
-	defer server.Close()
-
-	client := NewS3Client("test-key", "test-secret", "us-east-1", server.URL)
+	client := NewS3Client("test-key", "test-secret", "us-east-1", "https://example.com")
+	client.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return newResponse(http.StatusNotFound, "NoSuchKey"), nil
+		}),
+	}
 
 	_, err := client.GetObject("test-bucket", "missing.db")
 	if err == nil {
@@ -122,34 +131,33 @@ func TestS3ClientPutObject(t *testing.T) {
 	}
 	tmpFile.Close()
 
-	// Create mock S3 server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify request method
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	client := NewS3Client("test-access-key", "test-secret-key", "us-east-1", "https://example.com")
+	client.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			// Verify request method
+			if req.Method != "PUT" {
+				t.Errorf("Expected PUT request, got %s", req.Method)
+			}
 
-		// Verify AWS SigV4 headers
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Missing Authorization header")
-		}
-		if r.Header.Get("X-Amz-Date") == "" {
-			t.Error("Missing X-Amz-Date header")
-		}
-		if r.Header.Get("X-Amz-Content-Sha256") == "" {
-			t.Error("Missing X-Amz-Content-Sha256 header")
-		}
+			// Verify AWS SigV4 headers
+			if req.Header.Get("Authorization") == "" {
+				t.Error("Missing Authorization header")
+			}
+			if req.Header.Get("X-Amz-Date") == "" {
+				t.Error("Missing X-Amz-Date header")
+			}
+			if req.Header.Get("X-Amz-Content-Sha256") == "" {
+				t.Error("Missing X-Amz-Content-Sha256 header")
+			}
 
-		// Verify Content-Type header
-		if r.Header.Get("Content-Type") != "application/octet-stream" {
-			t.Errorf("Expected Content-Type 'application/octet-stream', got '%s'", r.Header.Get("Content-Type"))
-		}
+			// Verify Content-Type header
+			if req.Header.Get("Content-Type") != "application/octet-stream" {
+				t.Errorf("Expected Content-Type 'application/octet-stream', got '%s'", req.Header.Get("Content-Type"))
+			}
 
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	client := NewS3Client("test-access-key", "test-secret-key", "us-east-1", server.URL)
+			return newResponse(http.StatusOK, ""), nil
+		}),
+	}
 
 	// Open file for upload
 	file, err := os.Open(tmpFile.Name())
@@ -171,12 +179,13 @@ func TestS3ClientPutObject(t *testing.T) {
 }
 
 func TestS3ClientPutObjectMissingFile(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("Server should not be called for missing file")
-	}))
-	defer server.Close()
-
-	client := NewS3Client("test-key", "test-secret", "us-east-1", server.URL)
+	client := NewS3Client("test-key", "test-secret", "us-east-1", "https://example.com")
+	client.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			t.Error("client transport should not be invoked for missing file")
+			return newResponse(http.StatusInternalServerError, ""), nil
+		}),
+	}
 
 	// Try to open non-existent file
 	file, err := os.Open("/nonexistent/file.db")

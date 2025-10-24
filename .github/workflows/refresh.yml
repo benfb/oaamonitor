@@ -3,32 +3,27 @@ name: Refresh OAA Data
 on:
   schedule:
     # Run 4 times daily at 6am, 12pm, 6pm, 12am EST (10, 16, 22, 4 UTC)
-    - cron: '0 10 * * *'  # 6am EST
-    - cron: '0 16 * * *'  # 12pm EST
-    - cron: '0 22 * * *'  # 6pm EST
-    - cron: '0 4 * * *'   # 12am EST
-  workflow_dispatch: # Allow manual trigger
+    - cron: "0 10 * * *"  # 6am EST
+    - cron: "0 16 * * *"  # 12pm EST
+    - cron: "0 22 * * *"  # 6pm EST
+    - cron: "0 4 * * *"   # 12am EST
+  workflow_dispatch:
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Trigger data refresh
-        run: |
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            -H "Authorization: Bearer ${{ secrets.REFRESH_TOKEN }}" \
-            https://oaamonitor.fly.dev/refresh)
-
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-
-          # Accept 202 (Accepted) since refresh runs asynchronously
-          if [ "$http_code" -ne 200 ] && [ "$http_code" -ne 202 ]; then
-            echo "Error: Refresh failed with status $http_code"
-            exit 1
-          fi
-
-          echo "Data refresh triggered successfully"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Refresh database and upload to storage
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
+        run: go run ./cmd/fetch -upload

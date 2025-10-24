@@ -1,5 +1,7 @@
 data/
 *.db
+.cache/
+public/
 .env
 .DS_Store
 *.log

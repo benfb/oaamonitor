@@ -2,7 +2,7 @@
 
 <div class="season-selector">
     <label for="seasonSelect">Season: </label>
-    <select id="seasonSelect" onchange="changeSeason(this.value)">
+    <select id="seasonSelect">
         {{range .Seasons}}
             <option value="{{.}}" {{if eq . $.SelectedSeason}}selected{{end}}>{{.}}</option>
         {{end}}
@@ -22,15 +22,16 @@
 </div>
 
 <script>
-    var playerStats = {{ .PlayerStats }};
-    var playerName = "{{ .PlayerName }}";
-    var playerPosition = "{{ .PlayerPosition }}";
-    
-    function changeSeason(season) {
-        window.location.href = window.location.pathname + "?season=" + season;
-    }
+    window.playerPageData = {
+        playerID: {{ .PlayerID }},
+        playerName: {{ toJSON .PlayerName }},
+        playerPositions: {{ toJSON .PlayerPositions }},
+        playerStatsBySeason: {{ toJSON .PlayerStatsBySeason }},
+        seasons: {{ toJSON .Seasons }},
+        selectedSeason: {{ .SelectedSeason }}
+    };
 </script>
 
-<script src="/static/playerChart.js" defer></script>
+<script src="/static/playerPage.js" defer></script>
 
 {{ template "footer" . }}

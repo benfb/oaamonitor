@@ -2,7 +2,7 @@
 
 <div class="season-selector">
     <label for="seasonSelect">Season: </label>
-    <select id="seasonSelect" onchange="changeSeason(this.value)">
+    <select id="seasonSelect">
         {{range .Seasons}}
             <option value="{{.}}" {{if eq . $.SelectedSeason}}selected{{end}}>{{.}}</option>
         {{end}}
@@ -33,7 +33,7 @@
                 <th></th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="teamPlayersTableBody">
             {{ range .SparklinesData }}
             <tr>
                 <td><a href="/player/{{ .PlayerID }}?season={{ $.SelectedSeason }}">{{ .Name }}</a></td>
@@ -49,15 +49,16 @@
 </div>
 
 <script>
-    var teamStats = {{ .TeamStats }};
-    var teamName = "{{ .TeamName }}";
-    var sparklinesData = {{ .SparklinesData }};
-    
-    function changeSeason(season) {
-        window.location.href = window.location.pathname + "?season=" + season;
-    }
+    window.teamPageData = {
+        teamName: {{ toJSON .TeamName }},
+        teamAbbreviation: {{ toJSON .TeamAbbreviation }},
+        teamStatsBySeason: {{ toJSON .TeamStatsBySeason }},
+        sparklinesBySeason: {{ toJSON .SparklinesBySeason }},
+        seasons: {{ toJSON .Seasons }},
+        selectedSeason: {{ .SelectedSeason }}
+    };
 </script>
 
-<script src="/static/teamChart.js" defer></script>
+<script src="/static/teamPage.js" defer></script>
 
 {{ template "footer" . }}

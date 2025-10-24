@@ -1,6 +1,7 @@
 package renderer
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -21,7 +22,18 @@ func New() (*Renderer, error) {
 		return nil, fmt.Errorf("failed to find templates: %v", err)
 	}
 
-	tmpl, err := template.ParseFiles(templates...)
+	funcMap := template.FuncMap{
+		"toJSON": func(v any) template.JS {
+			data, err := json.Marshal(v)
+			if err != nil {
+				log.Printf("failed to marshal JSON in template: %v", err)
+				return template.JS("null")
+			}
+			return template.JS(data)
+		},
+	}
+
+	tmpl, err := template.New("").Funcs(funcMap).ParseFiles(templates...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %v", err)
 	}
@@ -33,9 +45,7 @@ func New() (*Renderer, error) {
 
 // Render renders a template with the given data
 func (r *Renderer) Render(w http.ResponseWriter, tmplName string, data interface{}) {
-	// Execute template to a buffer first to catch errors before writing to response
-	buf := new(strings.Builder)
-	err := r.templates.ExecuteTemplate(buf, tmplName, data)
+	output, err := r.RenderToString(tmplName, data)
 	if err != nil {
 		log.Printf("Error rendering template %s: %v", tmplName, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -44,7 +54,17 @@ func (r *Renderer) Render(w http.ResponseWriter, tmplName string, data interface
 
 	// Set content type and write the buffered output
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(buf.String()))
+	w.Write([]byte(output))
+}
+
+// RenderToString executes a template and returns the rendered HTML
+func (r *Renderer) RenderToString(tmplName string, data interface{}) (string, error) {
+	buf := new(strings.Builder)
+	err := r.templates.ExecuteTemplate(buf, tmplName, data)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 // ReloadTemplates reloads all templates
@@ -54,7 +74,18 @@ func (r *Renderer) ReloadTemplates() error {
 		return fmt.Errorf("failed to find templates: %v", err)
 	}
 
-	tmpl, err := template.ParseFiles(templates...)
+	funcMap := template.FuncMap{
+		"toJSON": func(v any) template.JS {
+			data, err := json.Marshal(v)
+			if err != nil {
+				log.Printf("failed to marshal JSON in template reload: %v", err)
+				return template.JS("null")
+			}
+			return template.JS(data)
+		},
+	}
+
+	tmpl, err := template.New("").Funcs(funcMap).ParseFiles(templates...)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %v", err)
 	}

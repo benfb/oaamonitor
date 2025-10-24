@@ -1,36 +1,61 @@
 let currentFocus = -1;
+let searchIndex = [];
+let searchIndexPromise = null;
 
-function liveSearch() {
-    const query = document.getElementById('nav-player-search').value;
+function loadSearchIndex() {
+    if (!searchIndexPromise) {
+        searchIndexPromise = fetch('/search-index.json')
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`failed to load search index: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then((data) => {
+                searchIndex = Array.isArray(data) ? data : [];
+            })
+            .catch((error) => {
+                console.error(error);
+                searchIndex = [];
+            });
+    }
+    return searchIndexPromise;
+}
+
+async function liveSearch() {
+    const searchInput = document.getElementById('nav-player-search');
+    const resultsDiv = document.getElementById('search-results');
+    const query = searchInput.value.trim().toLowerCase();
+
     if (query.length === 0) {
-        document.getElementById('search-results').innerHTML = '';
+        resultsDiv.innerHTML = '';
+        resultsDiv.style.display = 'none';
         currentFocus = -1;
         return;
     }
 
-    fetch(`/search?query=${query}`)
-        .then(response => response.json())
-        .then(data => {
-            const resultsDiv = document.getElementById('search-results');
-            resultsDiv.style.display = 'block';
+    await loadSearchIndex();
 
-            resultsDiv.innerHTML = ''; // Clear previous results
+    const filtered = searchIndex.filter((player) =>
+        player.name.toLowerCase().includes(query)
+    );
 
-            data.results.forEach((player, index) => {
-                const playerDiv = document.createElement('div');
-                playerDiv.textContent = player.name;
-                playerDiv.classList.add('search-result-item');
-                playerDiv.setAttribute('data-id', player.id);
-                playerDiv.setAttribute('data-index', index);
-                playerDiv.onclick = () => {
-                    window.location.href = `/player/${player.id}`;
-                };
-                resultsDiv.appendChild(playerDiv);
-            });
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = '';
 
-            currentFocus = -1;
-        })
-        .catch(error => console.error('Error fetching search results:', error));
+    filtered.forEach((player, index) => {
+        const playerDiv = document.createElement('div');
+        playerDiv.textContent = player.name;
+        playerDiv.classList.add('search-result-item');
+        playerDiv.setAttribute('data-id', player.id);
+        playerDiv.setAttribute('data-index', index);
+        playerDiv.onclick = () => {
+            window.location.href = `/player/${player.id}`;
+        };
+        resultsDiv.appendChild(playerDiv);
+    });
+
+    currentFocus = -1;
 }
 
 function addActive(items) {

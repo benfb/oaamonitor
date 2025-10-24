@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -480,6 +481,70 @@ func FetchSeasons(db *sql.DB) ([]int, error) {
 			return nil, err
 		}
 
+		seasons = append(seasons, year)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return seasons, nil
+}
+
+// FetchPlayerSeasons returns the seasons in which the player has recorded stats
+func FetchPlayerSeasons(db *sql.DB, playerID int) ([]int, error) {
+	rows, err := db.Query(`
+		SELECT DISTINCT strftime('%Y', date) as year
+		FROM outs_above_average
+		WHERE player_id = ?
+		ORDER BY year DESC
+	`, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var seasons []int
+	for rows.Next() {
+		var yearStr string
+		if err := rows.Scan(&yearStr); err != nil {
+			return nil, err
+		}
+		year, err := strconv.Atoi(yearStr)
+		if err != nil {
+			return nil, err
+		}
+		seasons = append(seasons, year)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return seasons, nil
+}
+
+// FetchTeamSeasons returns the seasons in which the team has recorded stats
+func FetchTeamSeasons(db *sql.DB, teamName string) ([]int, error) {
+	rows, err := db.Query(`
+		SELECT DISTINCT strftime('%Y', date) as year
+		FROM outs_above_average
+		WHERE LOWER(team) = ?
+		ORDER BY year DESC
+	`, strings.ToLower(teamName))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var seasons []int
+	for rows.Next() {
+		var yearStr string
+		if err := rows.Scan(&yearStr); err != nil {
+			return nil, err
+		}
+		year, err := strconv.Atoi(yearStr)
+		if err != nil {
+			return nil, err
+		}
 		seasons = append(seasons, year)
 	}
 	if err := rows.Err(); err != nil {
