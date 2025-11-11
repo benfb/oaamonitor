@@ -18,23 +18,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func RunPeriodically(ctx context.Context, cfg *config.Config, interval time.Duration, fn func(context.Context, *config.Config) error) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			log.Println("Refreshing data...")
-			if err := fn(ctx, cfg); err != nil {
-				log.Printf("Error refreshing data: %v", err)
-			}
-		}
-	}
-}
-
 func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 	currentYear := time.Now().Year()
 	url := fmt.Sprintf("https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear=%d&endYear=%d&split=yes&team=&range=year&min=10&pos=&roles=&viz=hide&csv=true", currentYear, currentYear)
