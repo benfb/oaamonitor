@@ -34,6 +34,6 @@ Set these repository secrets so both workflows can authenticate against your sto
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_REGION`
-- `AWS_ENDPOINT_URL_S3` (optional; defaults to Fly/Tigris)
+- `AWS_ENDPOINT_URL_S3` (optional; defaults to `https://s3.amazonaws.com`, override for other S3-compatible providers)
 
 GitHub Pages handles the hosting; once the `deploy` workflow runs, the published site is available under the repository’s Pages URL (or any custom domain configured in the repo settings).

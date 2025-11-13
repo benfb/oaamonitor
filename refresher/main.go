@@ -38,7 +38,7 @@ func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 		if err := storage.UploadDatabase(ctx, cfg.DatabasePath); err != nil {
 			return fmt.Errorf("failed to upload database: %v", err)
 		}
-		log.Println("Database successfully uploaded to Fly Storage.")
+		log.Println("Database successfully uploaded to object storage.")
 	}
 
 	return nil

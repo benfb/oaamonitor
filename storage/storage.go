@@ -24,7 +24,7 @@ func getS3Client() (*S3Client, error) {
 	}
 
 	if endpoint == "" {
-		endpoint = "https://fly.storage.tigris.dev"
+		endpoint = "https://s3.amazonaws.com"
 	}
 
 	return NewS3Client(accessKeyID, secretAccessKey, region, endpoint), nil
@@ -61,7 +61,7 @@ func DownloadDatabase(ctx context.Context, dbPath string) error {
 	return nil
 }
 
-// UploadDatabase uploads the SQLite database to Tigris Fly Storage
+// UploadDatabase uploads the SQLite database to object storage
 func UploadDatabase(ctx context.Context, dbPath string) error {
 	client, err := getS3Client()
 	if err != nil {
