@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/database"
@@ -91,6 +92,17 @@ func copyDir(src, dst string) error {
 	return nil
 }
 
+func validateOutputDir(path string) error {
+	clean := filepath.Clean(path)
+	if clean == "" || clean == "." || clean == string(os.PathSeparator) {
+		return fmt.Errorf("refusing to remove unsafe output path %q", path)
+	}
+	if strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
+		return fmt.Errorf("output path %q resolves outside the working tree", path)
+	}
+	return nil
+}
+
 func buildSearchIndex(outputDir string, players []models.Player) error {
 	type searchEntry struct {
 		ID   int    `json:"id"`
@@ -120,6 +132,9 @@ func buildSearchIndex(outputDir string, players []models.Player) error {
 func main() {
 	cfgFlags := parseFlags()
 
+	if err := validateOutputDir(cfgFlags.outputDir); err != nil {
+		log.Fatalf("invalid output path: %v", err)
+	}
 	if err := os.RemoveAll(cfgFlags.outputDir); err != nil {
 		log.Fatalf("failed to prepare output directory: %v", err)
 	}

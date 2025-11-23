@@ -250,3 +250,20 @@ func TestHmacSHA256(t *testing.T) {
 		t.Errorf("Expected HMAC length 32, got %d", len(result))
 	}
 }
+
+func TestBuildCanonicalURIEncoding(t *testing.T) {
+	got := buildCanonicalURI("my-bucket", "folder/a b/c+d.txt")
+	want := "/my-bucket/folder/a%20b/c%2Bd.txt"
+	if got != want {
+		t.Fatalf("canonical URI mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestCanonicalQueryString(t *testing.T) {
+	raw := "z=last&b=hi%20there&a=1&b=second&empty="
+	got := canonicalQueryString(raw)
+	want := "a=1&b=hi%20there&b=second&empty=&z=last"
+	if got != want {
+		t.Fatalf("canonical query mismatch: got %q want %q", got, want)
+	}
+}

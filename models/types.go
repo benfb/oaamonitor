@@ -60,7 +60,6 @@ func FetchTeamStats(db *sql.DB, teamName string, season int) ([]Stat, string, er
 	FROM outs_above_average o
 	LEFT JOIN latest_positions lp ON o.player_id = lp.player_id AND lp.rn = 1
 	WHERE LOWER(o.team) = ? AND strftime('%Y', o.date) = ?
-	GROUP BY o.player_id, o.date
 	ORDER BY o.last_name, o.date;`, teamName, strconv.Itoa(season), teamName, strconv.Itoa(season))
 	if err != nil {
 		return nil, "", err
@@ -113,6 +112,7 @@ type PlayerStats struct {
 // MapStatsByPlayerID returns a slice of PlayerStats sorted by current OAA in descending order
 func MapStatsByPlayerID(stats []Stat) []PlayerStats {
 	statsMap := make(map[int]*PlayerStats)
+	latestDates := make(map[int]time.Time)
 
 	for _, stat := range stats {
 		if entry, ok := statsMap[stat.PlayerID]; !ok {
@@ -123,21 +123,11 @@ func MapStatsByPlayerID(stats []Stat) []PlayerStats {
 				LatestOAA:  stat.OAA,
 				OAAHistory: []SparklinePoint{{Date: stat.Date, OAA: stat.OAA}},
 			}
+			latestDates[stat.PlayerID] = stat.Date
 		} else {
-			// Check if current stat's date is more recent than our stored latest date
-			latestDate := time.Time{}
-			if len(entry.OAAHistory) > 0 {
-				// Find the most recent date in history
-				for _, point := range entry.OAAHistory {
-					if point.Date.After(latestDate) {
-						latestDate = point.Date
-					}
-				}
-			}
-
-			// Update latest OAA if this is a more recent stat
-			if stat.Date.After(latestDate) {
+			if stat.Date.After(latestDates[stat.PlayerID]) {
 				entry.LatestOAA = stat.OAA
+				latestDates[stat.PlayerID] = stat.Date
 			}
 
 			// Add to history

@@ -1,6 +1,7 @@
 package refresher
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/csv"
@@ -22,13 +23,14 @@ func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 	currentYear := time.Now().Year()
 	url := fmt.Sprintf("https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear=%d&endYear=%d&split=yes&team=&range=year&min=10&pos=&roles=&viz=hide&csv=true", currentYear, currentYear)
 
-	tmpFile, err := downloadFile(url)
+	timeout := time.Duration(cfg.RequestTimeout) * time.Second
+	tmpFile, err := downloadFile(ctx, url, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to download CSV file: %v", err)
 	}
 	defer os.Remove(tmpFile.Name())
 
-	if err := processCSV(tmpFile.Name(), cfg.DatabasePath); err != nil {
+	if err := processCSV(ctx, tmpFile.Name(), cfg.DatabasePath); err != nil {
 		return fmt.Errorf("failed to process CSV file: %v", err)
 	}
 
@@ -44,12 +46,23 @@ func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func downloadFile(url string) (*os.File, error) {
-	resp, err := http.Get(url)
+func downloadFile(ctx context.Context, url string, timeout time.Duration) (*os.File, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return nil, fmt.Errorf("unexpected status %d fetching CSV: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
 
 	tmpFile, err := os.CreateTemp("", "outs_above_average_*.csv")
 	if err != nil {
@@ -69,7 +82,7 @@ func downloadFile(url string) (*os.File, error) {
 	return tmpFile, nil
 }
 
-func processCSV(filepath, dbPath string) error {
+func processCSV(ctx context.Context, filepath, dbPath string) error {
 	file, err := os.Open(filepath)
 	if err != nil {
 		return err
@@ -99,7 +112,18 @@ func processCSV(filepath, dbPath string) error {
 		return err
 	}
 
-	stmt, err := prepareInsertStatement(db)
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			tx.Rollback()
+		}
+	}()
+
+	stmt, err := prepareInsertStatement(tx)
 	if err != nil {
 		return err
 	}
@@ -120,6 +144,10 @@ func processCSV(filepath, dbPath string) error {
 		}
 	}
 
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
 	return nil
 }
 
@@ -161,7 +189,9 @@ func createTable(db *sql.DB) error {
 	return nil
 }
 
-func prepareInsertStatement(db *sql.DB) (*sql.Stmt, error) {
+func prepareInsertStatement(db interface {
+	Prepare(string) (*sql.Stmt, error)
+}) (*sql.Stmt, error) {
 	insertSQL := `
 	INSERT INTO outs_above_average (player_id, first_name, last_name, full_name, team, primary_position, oaa, actual_success_rate, estimated_success_rate, diff_success_rate, date)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE)
@@ -239,13 +269,14 @@ func parsePercentage(percentageStr string) (float64, error) {
 
 func removeBOM(r io.Reader) io.Reader {
 	b := make([]byte, 3)
-	if _, err := r.Read(b); err != nil {
+	n, err := r.Read(b)
+	if err != nil {
 		return r
 	}
 
-	if b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
+	if n == 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
 		return r
 	}
 
-	return io.MultiReader(strings.NewReader(string(b)), r)
+	return io.MultiReader(bytes.NewReader(b[:n]), r)
 }
