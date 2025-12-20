@@ -2,7 +2,7 @@ module github.com/benfb/oaamonitor
 
 go 1.25.0
 
-require modernc.org/sqlite v1.40.0
+require modernc.org/sqlite v1.41.0
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
