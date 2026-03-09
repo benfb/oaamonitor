@@ -85,12 +85,7 @@ func (b *Builder) Teams() ([]Team, error) {
 }
 
 // RenderIndex builds the home page HTML.
-func (b *Builder) RenderIndex() (string, error) {
-	players, err := models.FetchPlayers(b.db.DB)
-	if err != nil {
-		return "", err
-	}
-
+func (b *Builder) RenderIndex(players []models.Player) (string, error) {
 	teams, err := b.loadTeams()
 	if err != nil {
 		return "", err

@@ -156,7 +156,7 @@ func MapStatsByPlayerID(stats []Stat) []PlayerStats {
 
 // FetchPlayers retrieves distinct player IDs and names from the database in alphabetical order
 func FetchPlayers(db *sql.DB) ([]Player, error) {
-	rows, err := db.Query("SELECT DISTINCT player_id, full_name FROM outs_above_average ORDER BY last_name, first_name DESC")
+	rows, err := db.Query("SELECT DISTINCT player_id, full_name FROM outs_above_average ORDER BY last_name, first_name")
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +325,8 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 	var rows *sql.Rows
 	var err error
 
-	// If there are no differences, fetch the differences between the current and previous OAA totals
+	// If no OAA changed between the two most recent snapshots (e.g. data hasn't updated yet today),
+	// fall back to comparing the two snapshots before that so the page isn't empty.
 	if count == 0 {
 		rows, err = db.Query(`
 			SELECT
@@ -346,7 +347,6 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 			LIMIT ?;
 			`, limit)
 	} else {
-		// Otherwise, fetch the differences between the current and previous OAA totals starting from the previous day
 		rows, err = db.Query(`
 			SELECT
 				current.player_id,

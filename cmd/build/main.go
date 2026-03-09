@@ -172,8 +172,13 @@ func main() {
 		log.Fatalf("failed to create site builder: %v", err)
 	}
 
+	players, err := models.FetchPlayers(db.DB)
+	if err != nil {
+		log.Fatalf("failed to fetch players: %v", err)
+	}
+
 	// Render index page
-	indexHTML, err := siteBuilder.RenderIndex()
+	indexHTML, err := siteBuilder.RenderIndex(players)
 	if err != nil {
 		log.Fatalf("failed to render index: %v", err)
 	}
@@ -184,11 +189,6 @@ func main() {
 	teams, err := siteBuilder.Teams()
 	if err != nil {
 		log.Fatalf("failed to load teams: %v", err)
-	}
-
-	players, err := models.FetchPlayers(db.DB)
-	if err != nil {
-		log.Fatalf("failed to fetch players: %v", err)
 	}
 
 	for _, player := range players {
