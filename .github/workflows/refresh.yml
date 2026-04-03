@@ -3,10 +3,10 @@ name: Refresh OAA Data
 on:
   schedule:
     # Run 4 times daily at 6am, 12pm, 6pm, 12am EST (10, 16, 22, 4 UTC)
-    - cron: "0 10 * * *"  # 6am EST
-    - cron: "0 16 * * *"  # 12pm EST
-    - cron: "0 22 * * *"  # 6pm EST
-    - cron: "0 4 * * *"   # 12am EST
+    - cron: "0 10 * * *" # 6am EST
+    - cron: "0 16 * * *" # 12pm EST
+    - cron: "0 22 * * *" # 6pm EST
+    - cron: "0 4 * * *" # 12am EST
   workflow_dispatch:
 
 jobs:
@@ -15,8 +15,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: false
