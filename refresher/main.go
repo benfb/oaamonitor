@@ -37,6 +37,9 @@ func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 	log.Println("CSV data successfully inserted or updated in the database.")
 
 	if cfg.UploadDatabase {
+		if err := checkpointWAL(cfg.DatabasePath); err != nil {
+			return fmt.Errorf("failed to checkpoint WAL before upload: %v", err)
+		}
 		if err := storage.UploadDatabase(ctx, cfg.DatabasePath); err != nil {
 			return fmt.Errorf("failed to upload database: %v", err)
 		}
@@ -265,6 +268,16 @@ func parsePercentage(percentageStr string) (float64, error) {
 		return percentageValue, nil
 	}
 	return percentageValue / 100, nil
+}
+
+func checkpointWAL(dbPath string) error {
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	_, err = db.Exec("PRAGMA wal_checkpoint(FULL)")
+	return err
 }
 
 func removeBOM(r io.Reader) io.Reader {
