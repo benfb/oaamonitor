@@ -39,7 +39,7 @@ jobs:
       - name: Build static site
         run: go run ./cmd/build -database data/oaamonitor.db -out public
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: public
 
