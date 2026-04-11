@@ -75,7 +75,7 @@ func TestProcessCSV_RollsBackOnReadError(t *testing.T) {
 		t.Fatalf("expected processing to fail due to malformed row")
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		t.Fatalf("failed to open db: %v", err)
 	}

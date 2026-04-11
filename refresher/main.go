@@ -102,7 +102,7 @@ func processCSV(ctx context.Context, filepath, dbPath string) error {
 		return fmt.Errorf("unexpected number of header fields: got %d, want %d", len(header), expectedFields)
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return err
 	}
