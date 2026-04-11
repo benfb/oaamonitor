@@ -16,7 +16,7 @@ import (
 
 	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/storage"
-	_ "modernc.org/sqlite"
+	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
 func GetLatestOAA(ctx context.Context, cfg *config.Config) error {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
 // setupTestDB creates an in-memory database with test data
@@ -38,7 +38,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 
 	// Insert test data
 	_, err = db.Exec(`
-    INSERT INTO outs_above_average 
+    INSERT INTO outs_above_average
     (player_id, full_name, first_name, last_name, team, primary_position, oaa, date, actual_success_rate, estimated_success_rate, diff_success_rate)
     VALUES
     (1, 'John Doe', 'John', 'Doe', 'Yankees', 'SS', 5, '2023-08-01', 0.75, 0.70, 0.05),

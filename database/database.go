@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
 // DB wraps the sql.DB connection and provides methods for database operations
