@@ -43,7 +43,7 @@ func New() (*Renderer, error) {
 }
 
 // RenderToString executes a template and returns the rendered HTML
-func (r *Renderer) RenderToString(tmplName string, data interface{}) (string, error) {
+func (r *Renderer) RenderToString(tmplName string, data any) (string, error) {
 	buf := new(strings.Builder)
 	err := r.templates.ExecuteTemplate(buf, tmplName, data)
 	if err != nil {
