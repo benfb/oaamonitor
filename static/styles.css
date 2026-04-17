@@ -128,10 +128,19 @@ nav ul li {
   left: 0;
   background: var(--bg);
   border: 1px solid var(--border);
+  border-top: 2px solid var(--accent);
   min-width: 180px;
   z-index: 200;
   max-height: 400px;
   overflow-y: auto;
+}
+
+.dropdown-content li {
+  border-bottom: 1px solid var(--row-sep);
+}
+
+.dropdown-content li:last-child {
+  border-bottom: none;
 }
 
 .dropdown-content li a {
@@ -202,6 +211,7 @@ nav ul li {
   overflow-y: auto;
   background: var(--bg);
   border: 1px solid var(--border);
+  border-top: 2px solid var(--accent);
   z-index: 1000;
 }
 
