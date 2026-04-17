@@ -1,91 +1,103 @@
 {{ template "header" . }}
-<br />
-<p>
-    Outs Above Average Monitor is a website which displays the daily
-    <a href="https://www.mlb.com/glossary/statcast/outs-above-average"
-        >Outs Above Average</a
-    >
-    total for MLB players. This data is
-    <a href="https://baseballsavant.mlb.com/leaderboard/outs_above_average"
-        >viewable on Baseball Savant for each player</a
-    >, but this website makes it easier to view the daily changes for each
-    player. The data is entirely from Baseball Savant. I don't think viewing
-    defensive metrics on a daily basis is actually useful, but it's fun.
-</p>
 
-<div class="download-section">
-    <a href="/downloads/oaamonitor.db" class="btn download-btn"
-        >Download Database ({{ .DatabaseSize }})</a
-    >
-    <p class="download-info">
-        Download the SQLite database to access the raw data to do your own
-        analysis.
+<div class="intro-row">
+    <p>
+        Outs Above Average Monitor is a website which displays the daily
+        <a href="https://www.mlb.com/glossary/statcast/outs-above-average"
+            >Outs Above Average</a
+        >
+        total for MLB players. This data is
+        <a href="https://baseballsavant.mlb.com/leaderboard/outs_above_average"
+            >viewable on Baseball Savant for each player</a
+        >, but this website makes it easier to view the daily changes for each
+        player. The data is entirely from Baseball Savant. I don't think viewing
+        defensive metrics on a daily basis is actually useful, but it's fun.
     </p>
+    <a href="/downloads/oaamonitor.db" class="btn-ghost">↓ Download database ({{ .DatabaseSize }})</a>
 </div>
 
-<h2>Daily trends</h2>
-<table id="playerDifferences">
-    <thead>
-        <tr>
-            <th>Player</th>
-            <th>Team</th>
-            <th>Position</th>
-            <th>Difference</th>
-        </tr>
-    </thead>
-    <tbody>
-        {{ range .PlayerDifferences }}
-        <tr>
-            <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
-            <td>{{ .Team }}</td>
-            <td>{{ .Position }}</td>
-            <td>{{ .Difference }}</td>
-        </tr>
-        {{ end }}
-    </tbody>
-</table>
+<div class="tab-bar">
+    <button class="tab-btn active" data-tab="daily" onclick="showTab('daily')">Daily</button>
+    <button class="tab-btn" data-tab="weekly" onclick="showTab('weekly')">Weekly</button>
+    <button class="tab-btn" data-tab="monthly" onclick="showTab('monthly')">Monthly</button>
+</div>
 
-<h2>Weekly trends</h2>
-<table id="weeklyTrends">
-    <thead>
-        <tr>
-            <th>Player</th>
-            <th>Team</th>
-            <th>Position</th>
-            <th>Difference</th>
-        </tr>
-    </thead>
-    <tbody>
-        {{ range .SevenDayTrends }}
-        <tr>
-            <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
-            <td>{{ .Team }}</td>
-            <td>{{ .Position }}</td>
-            <td>{{ .Difference }}</td>
-        </tr>
-        {{ end }}
-    </tbody>
-</table>
+<div id="tab-daily">
+    <table>
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Team</th>
+                <th>Position</th>
+                <th class="col-right">Δ OAA</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .PlayerDifferences }}
+            <tr>
+                <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
+                <td>{{ .Team }}</td>
+                <td>{{ .Position }}</td>
+                <td class="col-right {{ if gt .Difference 0 }}positive{{ else if lt .Difference 0 }}negative{{ end }}">{{ .Difference }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</div>
 
-<h2>Monthly trends</h2>
-<table id="monthlyTrends">
-    <thead>
-        <tr>
-            <th>Player</th>
-            <th>Team</th>
-            <th>Position</th>
-            <th>Difference</th>
-        </tr>
-    </thead>
-    <tbody>
-        {{ range .ThirtyDayTrends }}
-        <tr>
-            <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
-            <td>{{ .Team }}</td>
-            <td>{{ .Position }}</td>
-            <td>{{ .Difference }}</td>
-        </tr>
-        {{ end }}
-    </tbody>
-</table>
+<div id="tab-weekly" style="display:none">
+    <table>
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Team</th>
+                <th>Position</th>
+                <th class="col-right">Δ OAA</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .SevenDayTrends }}
+            <tr>
+                <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
+                <td>{{ .Team }}</td>
+                <td>{{ .Position }}</td>
+                <td class="col-right {{ if gt .Difference 0 }}positive{{ else if lt .Difference 0 }}negative{{ end }}">{{ .Difference }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</div>
+
+<div id="tab-monthly" style="display:none">
+    <table>
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Team</th>
+                <th>Position</th>
+                <th class="col-right">Δ OAA</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .ThirtyDayTrends }}
+            <tr>
+                <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
+                <td>{{ .Team }}</td>
+                <td>{{ .Position }}</td>
+                <td class="col-right {{ if gt .Difference 0 }}positive{{ else if lt .Difference 0 }}negative{{ end }}">{{ .Difference }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function showTab(name) {
+    ['daily', 'weekly', 'monthly'].forEach(function(t) {
+        document.getElementById('tab-' + t).style.display = t === name ? '' : 'none';
+        document.querySelector('[data-tab="' + t + '"]').classList.toggle('active', t === name);
+    });
+}
+</script>
+
 {{ template "footer" . }}
