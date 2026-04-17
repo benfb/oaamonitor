@@ -42,7 +42,7 @@ const prefersDarkMode =
   window.matchMedia("(prefers-color-scheme: dark)").matches;
 
 if (prefersDarkMode) {
-  Chart.defaults.color = "#ffffff";
+  Chart.defaults.color = "#f0f4f8";
 }
 
 function buildDatasets(teamStats) {
@@ -104,7 +104,7 @@ function createTeamChart(ctx, teamName, stats) {
             },
           },
           grid: {
-            color: prefersDarkMode ? "#323232" : "#E5E5E5",
+            color: prefersDarkMode ? "#1f2229" : "#e5e7eb",
           },
           ticks: {
             maxRotation: 45,
@@ -124,13 +124,13 @@ function createTeamChart(ctx, teamName, stats) {
             },
           },
           grid: {
-            color: prefersDarkMode ? "#323232" : "#E5E5E5",
+            color: prefersDarkMode ? "#1f2229" : "#e5e7eb",
           },
         },
       },
       plugins: {
         customCanvasBackgroundColor: {
-          color: prefersDarkMode ? "#181818" : "white",
+          color: prefersDarkMode ? "#111318" : "#ffffff",
         },
         title: {
           display: true,
@@ -203,6 +203,9 @@ function renderTeamTable(tbody, players, season) {
 
     const oaaCell = document.createElement("td");
     oaaCell.textContent = player.LatestOAA;
+    oaaCell.className =
+      "col-right" +
+      (player.LatestOAA > 0 ? " positive" : player.LatestOAA < 0 ? " negative" : "");
 
     const sparklineCell = document.createElement("td");
     const canvas = document.createElement("canvas");

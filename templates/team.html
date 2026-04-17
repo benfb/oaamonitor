@@ -1,35 +1,43 @@
 {{ template "header" . }}
 
-<div class="season-selector">
-    <label for="seasonSelect">Season: </label>
-    <select id="seasonSelect">
-        {{range .Seasons}}
-            <option value="{{.}}" {{if eq . $.SelectedSeason}}selected{{end}}>{{.}}</option>
-        {{end}}
-    </select>
+<div class="hero">
+    <div class="hero-identity">
+        <h1 class="hero-name">{{ .TeamName }}</h1>
+        <span class="hero-meta">{{ .TeamAbbreviation }}</span>
+    </div>
+    <div class="hero-controls">
+        <div class="season-selector">
+            <label for="seasonSelect">Season</label>
+            <select id="seasonSelect">
+                {{range .Seasons}}
+                    <option value="{{.}}" {{if eq . $.SelectedSeason}}selected{{end}}>{{.}}</option>
+                {{end}}
+            </select>
+        </div>
+        <div class="hero-actions">
+            <button id="downloadChart" class="btn-ghost">↓ Download Chart</button>
+            <a
+                id="savantLink"
+                class="btn-ghost btn-accent"
+                href="https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear={{ .CurrentYear }}&endYear={{ .CurrentYear }}&split=yes&team={{ .TeamAbbreviation }}&range=year&min=10&pos=&roles=&viz=hide"
+                target="_blank"
+                >View on Savant ↗</a>
+        </div>
+    </div>
 </div>
 
-<canvas id="teamChart" style="padding: 10px"></canvas>
+<canvas id="teamChart"></canvas>
 
-<div class="button-container">
-    <button id="downloadChart" class="btn">Download Chart as PNG</button>
-    <a
-        id="savantLink"
-        class="btn"
-        href="https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear={{ .CurrentYear }}&endYear={{ .CurrentYear }}&split=yes&team={{ .TeamAbbreviation }}&range=year&min=10&pos=&roles=&viz=hide"
-        target="_blank"
-        >View on Baseball Savant</a
-    >
-</div>
-
-<div id="playersList" style="border-collapse: collapse">
-    <h2>{{ .TeamName }} OAA</h2>
+<div id="playersList">
+    <div class="section-label">
+        <span>{{ .TeamName }} OAA</span>
+    </div>
     <table id="teamPlayersTable">
         <thead>
             <tr>
                 <th>Player</th>
                 <th>Position</th>
-                <th>OAA</th>
+                <th class="col-right">OAA</th>
                 <th></th>
             </tr>
         </thead>
@@ -38,7 +46,7 @@
             <tr>
                 <td><a href="/player/{{ .PlayerID }}?season={{ $.SelectedSeason }}">{{ .Name }}</a></td>
                 <td>{{ .Position }}</td>
-                <td>{{ .LatestOAA }}</td>
+                <td class="col-right {{ if gt .LatestOAA 0 }}positive{{ else if lt .LatestOAA 0 }}negative{{ end }}">{{ .LatestOAA }}</td>
                 <td>
                     <canvas id="playerChart{{ .PlayerID }}"></canvas>
                 </td>
