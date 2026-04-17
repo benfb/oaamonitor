@@ -19,18 +19,17 @@
 <body>
     <nav>
         <ul>
-            <li><a href="/">Outs Above Average Monitor</a></li>
+            <li class="nav-logo"><a href="/"><span class="logo-accent">OAA</span>Monitor</a></li>
             <li class="dropdown">
-                Teams
-                <span class="arrow"></span>
+                <span class="nav-teams">Teams <span class="arrow"></span></span>
                 <ul class="dropdown-content">
                     {{ range .Teams }}
-                    <li class="nav-team-link"><a href="/team/{{ .Slug }}">{{ .Name }}</a></li>
+                    <li><a href="/team/{{ .Slug }}">{{ .Name }}</a></li>
                     {{ end }}
                 </ul>
             </li>
-            <li>
-                <input type="text" id="nav-player-search" placeholder="Search players..." oninput="liveSearch()">
+            <li class="nav-search">
+                <input type="text" id="nav-player-search" placeholder="Search players…" oninput="liveSearch()">
                 <div id="search-results" style="display:none;"></div>
             </li>
         </ul>
@@ -38,19 +37,16 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const dropdown = document.querySelector('.dropdown');
-            const dropdownContent = document.querySelector('.dropdown .dropdown-content');
-            const arrow = document.querySelector('.dropdown .arrow');
 
             dropdown.addEventListener('click', function (event) {
                 event.stopPropagation();
-                dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
                 dropdown.classList.toggle('open');
-                arrow.classList.toggle('arrow-rotated');
             });
 
             document.addEventListener('click', function () {
-                dropdownContent.style.display = 'none';
+                dropdown.classList.remove('open');
             });
         });
     </script>
+    <main class="page-content">
 {{ end }}
