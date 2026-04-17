@@ -15,7 +15,7 @@ const prefersDarkMode =
   window.matchMedia("(prefers-color-scheme: dark)").matches;
 
 if (prefersDarkMode) {
-  Chart.defaults.color = "#ffffff";
+  Chart.defaults.color = "#f0f4f8";
 }
 
 function formatStats(stats) {
@@ -54,7 +54,7 @@ function createChart(ctx, playerName, position, stats) {
             tooltipFormat: "MMM d, yyyy",
           },
           grid: {
-            color: prefersDarkMode ? "#323232" : "#E5E5E5",
+            color: prefersDarkMode ? "#1f2229" : "#e5e7eb",
           },
         },
         y: {
@@ -62,13 +62,13 @@ function createChart(ctx, playerName, position, stats) {
             stepSize: 1,
           },
           grid: {
-            color: prefersDarkMode ? "#323232" : "#E5E5E5",
+            color: prefersDarkMode ? "#1f2229" : "#e5e7eb",
           },
         },
       },
       plugins: {
         customCanvasBackgroundColor: {
-          color: prefersDarkMode ? "#181818" : "white",
+          color: prefersDarkMode ? "#111318" : "#ffffff",
         },
         title: {
           display: true,
@@ -123,6 +123,22 @@ document.addEventListener("DOMContentLoaded", () => {
     return data.playerPositions?.[key] || "N/A";
   };
 
+  const getTeamForSeason = (season) => {
+    const stats = getStatsForSeason(season);
+    return stats.find((s) => s.team)?.team || "";
+  };
+
+  const updateHeroMeta = (season) => {
+    const heroMeta = document.getElementById("heroMeta");
+    if (!heroMeta) return;
+    const team = getTeamForSeason(season);
+    const position = getPositionForSeason(season);
+    const parts = [];
+    if (team) parts.push(team);
+    if (position && position !== "N/A") parts.push(position);
+    heroMeta.textContent = parts.join(" · ");
+  };
+
   const updateSavantLink = (season) => {
     if (!savantLink) return;
     const base =
@@ -155,6 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
     getStatsForSeason(currentSeason),
   );
   updateSavantLink(currentSeason);
+  updateHeroMeta(currentSeason);
 
   const updateSeason = (season, pushState = true) => {
     currentSeason = Number(season);
@@ -170,6 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
     chart.update();
 
     updateSavantLink(currentSeason);
+    updateHeroMeta(currentSeason);
 
     if (pushState) {
       const params = new URLSearchParams(window.location.search);
