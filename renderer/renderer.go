@@ -20,6 +20,9 @@ func New() (*Renderer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to find templates: %v", err)
 	}
+	if len(templates) == 0 {
+		return nil, fmt.Errorf("no templates found in templates/; run from the repo root")
+	}
 
 	funcMap := template.FuncMap{
 		"toJSON": func(v any) template.JS {

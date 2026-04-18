@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"os"
@@ -82,7 +83,7 @@ func TestS3ClientGetObject(t *testing.T) {
 	}
 
 	// Test GetObject
-	resp, err := client.GetObject("test-bucket", "test-key.db")
+	resp, err := client.GetObject(context.Background(), "test-bucket", "test-key.db")
 	if err != nil {
 		t.Fatalf("GetObject failed: %v", err)
 	}
@@ -108,7 +109,7 @@ func TestS3ClientGetObjectNotFound(t *testing.T) {
 		}),
 	}
 
-	_, err := client.GetObject("test-bucket", "missing.db")
+	_, err := client.GetObject(context.Background(), "test-bucket", "missing.db")
 	if err == nil {
 		t.Error("Expected error for 404 response, got nil")
 	}
@@ -172,7 +173,7 @@ func TestS3ClientPutObject(t *testing.T) {
 	}
 
 	// Test PutObject
-	err = client.PutObject("test-bucket", "test-upload.db", file, fileInfo.Size())
+	err = client.PutObject(context.Background(), "test-bucket", "test-upload.db", file, fileInfo.Size())
 	if err != nil {
 		t.Fatalf("PutObject failed: %v", err)
 	}
@@ -197,7 +198,7 @@ func TestS3ClientPutObjectMissingFile(t *testing.T) {
 
 	// If we got here, the file unexpectedly exists
 	fileInfo, _ := file.Stat()
-	err = client.PutObject("test-bucket", "test.db", file, fileInfo.Size())
+	err = client.PutObject(context.Background(), "test-bucket", "test.db", file, fileInfo.Size())
 	if err == nil {
 		t.Error("Expected test to fail on non-existent file")
 	}

@@ -105,7 +105,7 @@ func processCSV(ctx context.Context, filepath, dbPath string) error {
 		return fmt.Errorf("unexpected number of header fields: got %d, want %d", len(header), expectedFields)
 	}
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite3", "file:"+dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return err
 	}
@@ -142,8 +142,7 @@ func processCSV(ctx context.Context, filepath, dbPath string) error {
 		}
 
 		if err := processRecord(stmt, record, expectedFields); err != nil {
-			log.Printf("Error processing record: %v", err)
-			continue
+			return fmt.Errorf("error processing record %v: %w", record[0], err)
 		}
 	}
 
@@ -264,14 +263,11 @@ func parsePercentage(percentageStr string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if strings.HasSuffix(percentageStr, "-") {
-		return percentageValue, nil
-	}
 	return percentageValue / 100, nil
 }
 
 func checkpointWAL(dbPath string) error {
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite3", "file:"+dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return err
 	}

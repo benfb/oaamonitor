@@ -38,7 +38,7 @@ func DownloadDatabase(ctx context.Context, dbPath string) error {
 	}
 
 	// Download the SQLite database file
-	resp, err := client.GetObject("oaamonitor", "oaamonitor.db")
+	resp, err := client.GetObject(ctx, "oaamonitor", "oaamonitor.db")
 	if err != nil {
 		log.Printf("Failed to download database file: %v", err)
 		return err
@@ -83,7 +83,7 @@ func UploadDatabase(ctx context.Context, dbPath string) error {
 		return err
 	}
 
-	err = client.PutObject("oaamonitor", "oaamonitor.db", file, fileInfo.Size())
+	err = client.PutObject(ctx, "oaamonitor", "oaamonitor.db", file, fileInfo.Size())
 	if err != nil {
 		log.Printf("Failed to upload database file: %v", err)
 		return err

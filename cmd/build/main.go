@@ -100,6 +100,9 @@ func validateOutputDir(path string) error {
 	if strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
 		return fmt.Errorf("output path %q resolves outside the working tree", path)
 	}
+	if filepath.IsAbs(clean) {
+		return fmt.Errorf("output path %q must be a relative path", path)
+	}
 	return nil
 }
 

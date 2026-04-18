@@ -51,6 +51,47 @@ func TestRemoveBOM(t *testing.T) {
 	}
 }
 
+func TestProcessCSV_RollsBackOnParseError(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+
+	// Both rows have exactly 16 fields (quoted names so the CSV reader doesn't
+	// count the comma as a separator). The second row has a non-numeric OAA,
+	// so the CSV reader succeeds but processRecord fails mid-transaction.
+	csvContent := strings.Join([]string{
+		"Name,PlayerID,Team,Col3,PrimaryPosition,Col5,OAA,Col7,Col8,Col9,Col10,Col11,Col12,ActualSuccessRate,EstimatedSuccessRate,DiffSuccessRate",
+		`"Smith, John",123,Blue Jays,x,SS,x,5,x,x,x,x,x,x,90%,80%,10%`,
+		`"Doe, Jane",456,Red Sox,x,CF,x,not-a-number,x,x,x,x,x,x,85%,70%,15%`,
+	}, "\n")
+
+	tmpFile, err := os.CreateTemp(dir, "data*.csv")
+	if err != nil {
+		t.Fatalf("failed to create temp csv: %v", err)
+	}
+	if _, err := tmpFile.WriteString(csvContent); err != nil {
+		t.Fatalf("failed to write csv: %v", err)
+	}
+	tmpFile.Close()
+
+	if err := processCSV(context.Background(), tmpFile.Name(), dbPath); err == nil {
+		t.Fatal("expected processing to fail on parse error")
+	}
+
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer db.Close()
+
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM outs_above_average").Scan(&count); err != nil {
+		t.Fatalf("failed to count rows: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected zero rows after rollback (first valid row must not commit), got %d", count)
+	}
+}
+
 func TestProcessCSV_RollsBackOnReadError(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")

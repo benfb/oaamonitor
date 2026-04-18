@@ -84,10 +84,13 @@ func FetchTeamStats(db *sql.DB, teamName string, season int) ([]Stat, string, er
 	if len(stats) == 0 {
 		var teamNameResult string
 		err := db.QueryRow(`
-			SELECT team FROM outs_above_average 
-			WHERE LOWER(team) = ? 
+			SELECT team FROM outs_above_average
+			WHERE LOWER(team) = ?
 			LIMIT 1
 		`, teamName).Scan(&teamNameResult)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, "", err
+		}
 		if err == nil {
 			capitalizedTeamName = teamNameResult
 		}
@@ -156,7 +159,10 @@ func MapStatsByPlayerID(stats []Stat) []PlayerStats {
 
 // FetchPlayers retrieves distinct player IDs and names from the database in alphabetical order
 func FetchPlayers(db *sql.DB) ([]Player, error) {
-	rows, err := db.Query("SELECT DISTINCT player_id, full_name FROM outs_above_average ORDER BY last_name, first_name")
+	rows, err := db.Query(`
+		SELECT player_id, full_name FROM outs_above_average
+		WHERE (player_id, date) IN (SELECT player_id, MAX(date) FROM outs_above_average GROUP BY player_id)
+		ORDER BY last_name, first_name`)
 	if err != nil {
 		return nil, err
 	}
@@ -229,6 +235,9 @@ func FetchPlayerStats(db *sql.DB, playerID int, season int) ([]Stat, string, str
 			WHERE player_id = ?
 			ORDER BY date DESC LIMIT 1
 		`, playerID).Scan(&name, &position)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, "", "", err
+		}
 		if err != nil {
 			return []Stat{}, "", "N/A", nil
 		}
@@ -340,8 +349,8 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 			FROM outs_above_average AS current
 			JOIN outs_above_average AS previous
 			ON current.player_id = previous.player_id
-			WHERE current.date = date((SELECT MAX(date) FROM outs_above_average), '-1 day')
-			AND previous.date = date((SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average)), '-1 day')
+			WHERE current.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
+			AND previous.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average)))
 			AND current.oaa != previous.oaa
 			ORDER BY difference DESC
 			LIMIT ?;
@@ -387,7 +396,7 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 }
 
 func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, error) {
-	query := fmt.Sprintf(`
+	query := `
 	WITH latest_positions AS (
 		SELECT player_id, primary_position,
 			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY date DESC) as rn
@@ -404,7 +413,7 @@ func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, er
 			o.date
 		FROM outs_above_average o
 		LEFT JOIN latest_positions lp ON o.player_id = lp.player_id AND lp.rn = 1
-		WHERE o.date >= (SELECT DATE(MAX(date), '-%d days') FROM outs_above_average)
+		WHERE o.date >= (SELECT DATE(MAX(date), ?) FROM outs_above_average)
 	),
 	player_trends AS (
 		SELECT
@@ -426,11 +435,11 @@ func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, er
 		end_oaa,
 		(end_oaa - start_oaa) as difference
 	FROM player_trends
-	WHERE rn = 1 AND ABS(end_oaa - start_oaa) > %d
+	WHERE rn = 1 AND ABS(end_oaa - start_oaa) > ?
 	ORDER BY difference DESC
 	LIMIT 100;
-	`, daysAgo, threshold)
-	rows, err := db.Query(query)
+	`
+	rows, err := db.Query(query, fmt.Sprintf("-%d days", daysAgo), threshold)
 	if err != nil {
 		return nil, err
 	}

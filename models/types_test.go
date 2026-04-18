@@ -171,6 +171,42 @@ func TestFetchPlayers(t *testing.T) {
 	}
 }
 
+func TestFetchPlayers_DeduplicatesAfterNameCorrection(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Insert an older row for player 1 with a different (pre-correction) name.
+	_, err := db.Exec(`
+		INSERT INTO outs_above_average
+		(player_id, full_name, first_name, last_name, team, primary_position, oaa, date, actual_success_rate, estimated_success_rate, diff_success_rate)
+		VALUES (1, 'Johnathan Doe', 'Johnathan', 'Doe', 'Yankees', 'SS', 4, '2022-01-01', 0.75, 0.70, 0.05)
+	`)
+	if err != nil {
+		t.Fatalf("Failed to insert corrected name row: %v", err)
+	}
+
+	players, err := FetchPlayers(db)
+	if err != nil {
+		t.Fatalf("FetchPlayers returned error: %v", err)
+	}
+
+	seen := make(map[int]int)
+	for _, p := range players {
+		seen[p.ID]++
+	}
+	for id, count := range seen {
+		if count > 1 {
+			t.Errorf("player_id %d appears %d times, expected 1", id, count)
+		}
+	}
+
+	for _, p := range players {
+		if p.ID == 1 && p.Name != "John Doe" {
+			t.Errorf("expected player 1 to have most recent name 'John Doe', got %q", p.Name)
+		}
+	}
+}
+
 func TestFetchPlayerStats(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
@@ -262,6 +298,50 @@ func TestFetchPlayerDifferences(t *testing.T) {
 
 	if !foundJohn {
 		t.Errorf("Expected to find John Doe in the results")
+	}
+}
+
+func TestFetchPlayerDifferences_FallbackWithDateGap(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open in-memory db: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE outs_above_average (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			player_id INTEGER, first_name TEXT, last_name TEXT, full_name TEXT,
+			team TEXT, primary_position TEXT, oaa INTEGER,
+			actual_success_rate REAL, estimated_success_rate REAL, diff_success_rate REAL,
+			date DATE DEFAULT CURRENT_DATE, UNIQUE(player_id, date)
+		)`)
+	if err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	// Three snapshots with a 2-day gap between each (not consecutive calendar days).
+	// today == 4-days-ago OAA (so the primary query finds count==0, triggering fallback).
+	// 4-days-ago != 6-days-ago OAA (so there are changes in the fallback period).
+	_, err = db.Exec(`
+		INSERT INTO outs_above_average (player_id, full_name, first_name, last_name, team, primary_position, oaa, date, actual_success_rate, estimated_success_rate, diff_success_rate) VALUES
+		(1, 'John Doe', 'John', 'Doe', 'Yankees', 'SS', 5, date('now'),           0.8, 0.7, 0.1),
+		(1, 'John Doe', 'John', 'Doe', 'Yankees', 'SS', 5, date('now', '-2 days'), 0.8, 0.7, 0.1),
+		(1, 'John Doe', 'John', 'Doe', 'Yankees', 'SS', 2, date('now', '-4 days'), 0.7, 0.6, 0.1)
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert test data: %v", err)
+	}
+
+	diffs, err := FetchPlayerDifferences(db, 10)
+	if err != nil {
+		t.Fatalf("FetchPlayerDifferences returned error: %v", err)
+	}
+	if len(diffs) == 0 {
+		t.Fatal("fallback returned no differences; calendar-arithmetic bug may have regressed")
+	}
+	if diffs[0].PlayerID != 1 || diffs[0].Difference != 3 {
+		t.Errorf("expected player 1 with difference 3, got player %d difference %d", diffs[0].PlayerID, diffs[0].Difference)
 	}
 }
 

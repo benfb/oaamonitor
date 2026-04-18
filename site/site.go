@@ -307,8 +307,6 @@ func NormalizeTeamName(teamName string) string {
 	switch teamName {
 	case "diamondbacks", "dbacks":
 		return "d-backs"
-	case "blue-jays", "red-sox", "white-sox":
-		return strings.ReplaceAll(teamName, "-", " ")
 	case "blue+jays", "red+sox", "white+sox":
 		return strings.ReplaceAll(teamName, "+", " ")
 	case "bluejays":

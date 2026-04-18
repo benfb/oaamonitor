@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -34,13 +35,13 @@ func NewS3Client(accessKeyID, secretAccessKey, region, endpointURL string) *S3Cl
 }
 
 // GetObject downloads an object from S3 and returns the response body
-func (c *S3Client) GetObject(bucket, key string) (io.ReadCloser, error) {
+func (c *S3Client) GetObject(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
 	objectURL, err := buildObjectURL(c.EndpointURL, bucket, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request URL: %w", err)
 	}
 
-	req, err := http.NewRequest("GET", objectURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", objectURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -71,13 +72,13 @@ func (c *S3Client) GetObject(bucket, key string) (io.ReadCloser, error) {
 }
 
 // PutObject uploads an object to S3 from a file
-func (c *S3Client) PutObject(bucket, key string, reader io.ReadSeeker, size int64) error {
+func (c *S3Client) PutObject(ctx context.Context, bucket, key string, reader io.ReadSeeker, size int64) error {
 	objectURL, err := buildObjectURL(c.EndpointURL, bucket, key)
 	if err != nil {
 		return fmt.Errorf("failed to build request URL: %w", err)
 	}
 
-	req, err := http.NewRequest("PUT", objectURL, reader)
+	req, err := http.NewRequestWithContext(ctx, "PUT", objectURL, reader)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
