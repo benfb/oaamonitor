@@ -24,41 +24,79 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 
 	if count == 0 {
 		rows, err = db.Query(`
+			WITH differences AS (
+				SELECT
+					current.player_id,
+					current.full_name,
+					current.team,
+					COALESCE(current.primary_position, 'N/A') AS position,
+					current.oaa AS current_oaa,
+					previous.oaa AS previous_oaa,
+					current.oaa - previous.oaa AS difference
+				FROM outs_above_average AS current
+				JOIN outs_above_average AS previous
+				ON current.player_id = previous.player_id
+				WHERE current.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
+				AND previous.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average)))
+				AND current.oaa != previous.oaa
+			),
+			ranked AS (
+				SELECT *,
+					ROW_NUMBER() OVER (
+						PARTITION BY CASE WHEN difference > 0 THEN 1 ELSE -1 END
+						ORDER BY ABS(difference) DESC, difference DESC
+					) AS movement_rank
+				FROM differences
+			)
 			SELECT
-				current.player_id,
-				current.full_name,
-				current.team,
-				COALESCE(current.primary_position, 'N/A') AS position,
-				current.oaa AS current_oaa,
-				previous.oaa AS previous_oaa,
-				current.oaa - previous.oaa AS difference
-			FROM outs_above_average AS current
-			JOIN outs_above_average AS previous
-			ON current.player_id = previous.player_id
-			WHERE current.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
-			AND previous.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average)))
-			AND current.oaa != previous.oaa
-			ORDER BY ABS(current.oaa - previous.oaa) DESC, difference DESC
-			LIMIT ?;
+				player_id,
+				full_name,
+				team,
+				position,
+				current_oaa,
+				previous_oaa,
+				difference
+			FROM ranked
+			WHERE movement_rank <= ?
+			ORDER BY difference DESC;
 			`, limit)
 	} else {
 		rows, err = db.Query(`
+			WITH differences AS (
+				SELECT
+					current.player_id,
+					current.full_name,
+					current.team,
+					COALESCE(current.primary_position, 'N/A') AS position,
+					current.oaa AS current_oaa,
+					previous.oaa AS previous_oaa,
+					current.oaa - previous.oaa AS difference
+				FROM outs_above_average AS current
+				JOIN outs_above_average AS previous
+				ON current.player_id = previous.player_id
+				WHERE current.date = (SELECT MAX(date) FROM outs_above_average)
+				AND previous.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
+				AND current.oaa != previous.oaa
+			),
+			ranked AS (
+				SELECT *,
+					ROW_NUMBER() OVER (
+						PARTITION BY CASE WHEN difference > 0 THEN 1 ELSE -1 END
+						ORDER BY ABS(difference) DESC, difference DESC
+					) AS movement_rank
+				FROM differences
+			)
 			SELECT
-				current.player_id,
-				current.full_name,
-				current.team,
-				COALESCE(current.primary_position, 'N/A') AS position,
-				current.oaa AS current_oaa,
-				previous.oaa AS previous_oaa,
-				current.oaa - previous.oaa AS difference
-			FROM outs_above_average AS current
-			JOIN outs_above_average AS previous
-			ON current.player_id = previous.player_id
-			WHERE current.date = (SELECT MAX(date) FROM outs_above_average)
-			AND previous.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
-			AND current.oaa != previous.oaa
-			ORDER BY ABS(current.oaa - previous.oaa) DESC, difference DESC
-			LIMIT ?;`, limit)
+				player_id,
+				full_name,
+				team,
+				position,
+				current_oaa,
+				previous_oaa,
+				difference
+			FROM ranked
+			WHERE movement_rank <= ?
+			ORDER BY difference DESC;`, limit)
 	}
 
 	if err != nil {
@@ -111,6 +149,26 @@ func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, er
 			FIRST_VALUE(oaa) OVER (PARTITION BY player_id ORDER BY date DESC) as end_oaa,
 			ROW_NUMBER() OVER (PARTITION BY player_id) as rn
 		FROM recent_data
+	),
+	trends AS (
+		SELECT
+			player_id,
+			full_name,
+			team,
+			position,
+			start_oaa,
+			end_oaa,
+			(end_oaa - start_oaa) as difference
+		FROM player_trends
+		WHERE rn = 1 AND ABS(end_oaa - start_oaa) > ?
+	),
+	ranked AS (
+		SELECT *,
+			ROW_NUMBER() OVER (
+				PARTITION BY CASE WHEN difference > 0 THEN 1 ELSE -1 END
+				ORDER BY ABS(difference) DESC, difference DESC
+			) AS movement_rank
+		FROM trends
 	)
 	SELECT
 		player_id,
@@ -119,11 +177,10 @@ func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, er
 		position,
 		start_oaa,
 		end_oaa,
-		(end_oaa - start_oaa) as difference
-	FROM player_trends
-	WHERE rn = 1 AND ABS(end_oaa - start_oaa) > ?
-	ORDER BY ABS(end_oaa - start_oaa) DESC, difference DESC
-	LIMIT 100;
+		difference
+	FROM ranked
+	WHERE movement_rank <= 100
+	ORDER BY difference DESC;
 	`
 	rows, err := db.Query(query, fmt.Sprintf("-%d days", daysAgo), threshold)
 	if err != nil {
