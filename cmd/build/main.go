@@ -166,7 +166,7 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	if _, err := db.Exec("PRAGMA wal_checkpoint(FULL)"); err != nil {
+	if err := database.Checkpoint(db.DB); err != nil {
 		log.Printf("warning: unable to checkpoint WAL file: %v", err)
 	}
 

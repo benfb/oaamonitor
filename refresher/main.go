@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/benfb/oaamonitor/config"
+	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/storage"
-	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
 func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
@@ -37,7 +37,7 @@ func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 	log.Println("CSV data successfully inserted or updated in the database.")
 
 	if cfg.UploadDatabase {
-		if err := checkpointWAL(cfg.DatabasePath); err != nil {
+		if err := database.CheckpointWAL(cfg.DatabasePath); err != nil {
 			return fmt.Errorf("failed to checkpoint WAL before upload: %v", err)
 		}
 		if err := storage.UploadDatabase(ctx, cfg.DatabasePath); err != nil {
@@ -105,13 +105,13 @@ func processCSV(ctx context.Context, filepath, dbPath string) error {
 		return err
 	}
 
-	db, err := sql.Open("sqlite3", "file:"+dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	db, err := database.Open(dbPath)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	if err := createTable(db); err != nil {
+	if err := database.EnsureSchema(db); err != nil {
 		return err
 	}
 
@@ -150,44 +150,6 @@ func processCSV(ctx context.Context, filepath, dbPath string) error {
 		return err
 	}
 	committed = true
-	return nil
-}
-
-func createTable(db *sql.DB) error {
-	createTableSQL := `
-	CREATE TABLE IF NOT EXISTS outs_above_average (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		player_id INTEGER,
-		first_name TEXT,
-		last_name TEXT,
-		full_name TEXT,
-		team TEXT,
-		primary_position TEXT,
-		oaa INTEGER,
-		actual_success_rate REAL,
-		estimated_success_rate REAL,
-		diff_success_rate REAL,
-		date DATE DEFAULT CURRENT_DATE,
-		UNIQUE(player_id, date)
-	);`
-	if _, err := db.Exec(createTableSQL); err != nil {
-		return err
-	}
-
-	// Create indexes for common query patterns
-	indexes := []string{
-		`CREATE INDEX IF NOT EXISTS idx_date ON outs_above_average(date)`,
-		`CREATE INDEX IF NOT EXISTS idx_team_lower ON outs_above_average(LOWER(team))`,
-		`CREATE INDEX IF NOT EXISTS idx_name ON outs_above_average(last_name, first_name)`,
-		`CREATE INDEX IF NOT EXISTS idx_team_date ON outs_above_average(LOWER(team), date)`,
-	}
-
-	for _, indexSQL := range indexes {
-		if _, err := db.Exec(indexSQL); err != nil {
-			return fmt.Errorf("failed to create index: %v", err)
-		}
-	}
-
 	return nil
 }
 
@@ -389,16 +351,6 @@ func parsePercentage(percentageStr string) (float64, error) {
 		return 0, err
 	}
 	return percentageValue / 100, nil
-}
-
-func checkpointWAL(dbPath string) error {
-	db, err := sql.Open("sqlite3", "file:"+dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	_, err = db.Exec("PRAGMA wal_checkpoint(FULL)")
-	return err
 }
 
 func removeBOM(r io.Reader) io.Reader {
