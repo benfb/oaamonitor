@@ -111,22 +111,29 @@ func (b *Builder) RenderIndex(players []models.Player) (string, error) {
 		dbSize = "Unknown"
 	}
 
+	latestSnapshotDate, err := models.FetchLatestSnapshotDate(b.db.DB)
+	if err != nil {
+		return "", err
+	}
+
 	data := struct {
-		Title             string
-		Players           []models.Player
-		Teams             []Team
-		PlayerDifferences []models.PlayerDifference
-		SevenDayTrends    []models.PlayerDifference
-		ThirtyDayTrends   []models.PlayerDifference
-		DatabaseSize      string
+		Title              string
+		Players            []models.Player
+		Teams              []Team
+		PlayerDifferences  []models.PlayerDifference
+		SevenDayTrends     []models.PlayerDifference
+		ThirtyDayTrends    []models.PlayerDifference
+		DatabaseSize       string
+		LatestSnapshotDate string
 	}{
-		Title:             "Outs Above Average Monitor",
-		Players:           players,
-		Teams:             teams,
-		PlayerDifferences: playerDifferences,
-		SevenDayTrends:    sevenDayTrends,
-		ThirtyDayTrends:   thirtyDayTrends,
-		DatabaseSize:      dbSize,
+		Title:              "Outs Above Average Monitor",
+		Players:            players,
+		Teams:              teams,
+		PlayerDifferences:  playerDifferences,
+		SevenDayTrends:     sevenDayTrends,
+		ThirtyDayTrends:    thirtyDayTrends,
+		DatabaseSize:       dbSize,
+		LatestSnapshotDate: latestSnapshotDate,
 	}
 
 	return b.renderer.RenderToString("index.html", data)

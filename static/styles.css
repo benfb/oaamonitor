@@ -403,6 +403,19 @@ nav ul li {
   color: var(--text);
 }
 
+.intro-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.snapshot-date {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* Tables */
 table {
   width: 100%;
@@ -538,6 +551,10 @@ footer p {
 
   .intro-row {
     flex-direction: column;
+  }
+
+  .intro-actions {
+    align-items: flex-start;
   }
 
   .tab-btn {

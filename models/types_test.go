@@ -437,3 +437,40 @@ func TestFetchSeasons(t *testing.T) {
 		t.Errorf("Expected first season to be 2023, got %d", seasons[0])
 	}
 }
+
+func TestFetchLatestSnapshotDate(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	latest, err := FetchLatestSnapshotDate(db)
+	if err != nil {
+		t.Fatalf("FetchLatestSnapshotDate returned error: %v", err)
+	}
+	if latest != "2023-08-15" {
+		t.Fatalf("expected latest snapshot date 2023-08-15, got %q", latest)
+	}
+}
+
+func TestFetchLatestSnapshotDateEmptyTable(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open in-memory database: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		CREATE TABLE outs_above_average (
+			date DATE DEFAULT CURRENT_DATE
+		)
+	`); err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	latest, err := FetchLatestSnapshotDate(db)
+	if err != nil {
+		t.Fatalf("FetchLatestSnapshotDate returned error: %v", err)
+	}
+	if latest != "" {
+		t.Fatalf("expected empty latest snapshot date, got %q", latest)
+	}
+}

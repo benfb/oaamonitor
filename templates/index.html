@@ -13,7 +13,12 @@
         player. The data is entirely from Baseball Savant. I don't think viewing
         defensive metrics on a daily basis is actually useful, but it's fun.
     </p>
-    <a href="/downloads/oaamonitor.db" class="btn-ghost">↓ Download database ({{ .DatabaseSize }})</a>
+    <div class="intro-actions">
+        {{ if .LatestSnapshotDate }}
+        <span class="snapshot-date">Updated {{ .LatestSnapshotDate }}</span>
+        {{ end }}
+        <a href="/downloads/oaamonitor.db" class="btn-ghost">↓ Download database ({{ .DatabaseSize }})</a>
+    </div>
 </div>
 
 <div class="tab-bar">
