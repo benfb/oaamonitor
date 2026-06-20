@@ -45,20 +45,31 @@ func DownloadDatabase(ctx context.Context, dbPath string) error {
 	}
 	defer resp.Close()
 
-	file, err := os.Create(dbPath)
+	tmpPath := dbPath + ".tmp"
+	defer os.Remove(tmpPath)
+
+	file, err := os.Create(tmpPath)
 	if err != nil {
-		log.Printf("Failed to create database file: %v", err)
+		log.Printf("Failed to create temporary database file: %v", err)
 		return err
 	}
-	defer file.Close()
 
-	_, err = io.Copy(file, resp)
-	if err != nil {
+	if _, err = io.Copy(file, resp); err != nil {
+		file.Close()
 		log.Printf("Failed to save database file: %v", err)
 		return err
 	}
+	if err = file.Sync(); err != nil {
+		file.Close()
+		log.Printf("Failed to sync database file: %v", err)
+		return err
+	}
+	if err = file.Close(); err != nil {
+		log.Printf("Failed to close database file: %v", err)
+		return err
+	}
 
-	return nil
+	return os.Rename(tmpPath, dbPath)
 }
 
 // UploadDatabase uploads the SQLite database to object storage
