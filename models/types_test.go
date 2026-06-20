@@ -239,6 +239,25 @@ func TestFetchPlayerStats(t *testing.T) {
 	}
 }
 
+func TestFetchStats(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	stats, err := FetchStats(db)
+	if err != nil {
+		t.Fatalf("FetchStats returned error: %v", err)
+	}
+	if len(stats) != 7 {
+		t.Fatalf("expected 7 stats, got %d", len(stats))
+	}
+	if stats[0].PlayerID != 1 || stats[0].Name != "John Doe" || stats[0].Date.Format("2006-01-02") != "2023-08-01" {
+		t.Fatalf("unexpected first stat: %+v", stats[0])
+	}
+	if stats[len(stats)-1].PlayerID != 4 || stats[len(stats)-1].Name != "Mike Brown" {
+		t.Fatalf("unexpected last stat: %+v", stats[len(stats)-1])
+	}
+}
+
 func TestFetchTeams(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()

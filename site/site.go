@@ -2,6 +2,7 @@ package site
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,13 @@ type Builder struct {
 	renderer    *renderer.Renderer
 	teams       []Team
 	teamsLoaded bool
+	stats       *statIndex
+}
+
+type statIndex struct {
+	playerStats map[int][]models.Stat
+	teamStats   map[string][]models.Stat
+	seasons     []int
 }
 
 // NewBuilder constructs a Builder backed by the provided database and config.
@@ -71,6 +79,130 @@ func (b *Builder) loadTeams() ([]Team, error) {
 	b.teams = teams
 	b.teamsLoaded = true
 	return teams, nil
+}
+
+func (b *Builder) loadStats() (*statIndex, error) {
+	if b.stats != nil {
+		return b.stats, nil
+	}
+
+	stats, err := models.FetchStats(b.db.DB)
+	if err != nil {
+		return nil, err
+	}
+
+	index := &statIndex{
+		playerStats: make(map[int][]models.Stat),
+		teamStats:   make(map[string][]models.Stat),
+	}
+	seasons := make(map[int]struct{})
+
+	for _, stat := range stats {
+		index.playerStats[stat.PlayerID] = append(index.playerStats[stat.PlayerID], stat)
+
+		normalizedTeam := NormalizeTeamName(strings.ToLower(stat.Team))
+		index.teamStats[normalizedTeam] = append(index.teamStats[normalizedTeam], stat)
+
+		seasons[stat.Date.Year()] = struct{}{}
+	}
+
+	index.seasons = sortedSeasons(seasons)
+	b.stats = index
+	return index, nil
+}
+
+func sortedSeasons(seasons map[int]struct{}) []int {
+	result := make([]int, 0, len(seasons))
+	for season := range seasons {
+		result = append(result, season)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(result)))
+	return result
+}
+
+func seasonsForStats(stats []models.Stat) []int {
+	seasons := make(map[int]struct{})
+	for _, stat := range stats {
+		seasons[stat.Date.Year()] = struct{}{}
+	}
+	return sortedSeasons(seasons)
+}
+
+func groupStatsBySeason(stats []models.Stat) map[int][]models.Stat {
+	result := make(map[int][]models.Stat)
+	for _, stat := range stats {
+		season := stat.Date.Year()
+		result[season] = append(result[season], stat)
+	}
+	return result
+}
+
+func playerPosition(stats []models.Stat) string {
+	position := "N/A"
+	for _, stat := range stats {
+		if stat.Position != "N/A" {
+			position = stat.Position
+		}
+	}
+	return position
+}
+
+func latestPlayerName(stats []models.Stat) string {
+	name := ""
+	for _, stat := range stats {
+		if stat.Name != "" {
+			name = stat.Name
+		}
+	}
+	return name
+}
+
+func teamName(stats []models.Stat) string {
+	name := ""
+	for _, stat := range stats {
+		if stat.Team != "" {
+			name = stat.Team
+		}
+	}
+	return name
+}
+
+func normalizeTeamSeasonPositions(stats []models.Stat) []models.Stat {
+	type latestPosition struct {
+		position string
+		date     time.Time
+	}
+
+	positions := make(map[int]latestPosition)
+	for _, stat := range stats {
+		if stat.Position == "N/A" {
+			continue
+		}
+		latest, ok := positions[stat.PlayerID]
+		if !ok || stat.Date.After(latest.date) {
+			positions[stat.PlayerID] = latestPosition{
+				position: stat.Position,
+				date:     stat.Date,
+			}
+		}
+	}
+
+	result := make([]models.Stat, 0, len(stats))
+	for _, stat := range stats {
+		if latest, ok := positions[stat.PlayerID]; ok {
+			stat.Position = latest.position
+		}
+		result = append(result, stat)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Name == result[j].Name {
+			return result[i].Date.Before(result[j].Date)
+		}
+		return result[i].Name < result[j].Name
+	})
+
+	return result
 }
 
 // Teams returns a copy of the cached teams list for navigation and routing.
@@ -141,27 +273,27 @@ func (b *Builder) RenderIndex(players []models.Player) (string, error) {
 
 // RenderPlayer builds the player page HTML for the supplied player ID.
 func (b *Builder) RenderPlayer(playerID int) (string, error) {
-	playerSeasons, err := models.FetchPlayerSeasons(b.db.DB, playerID)
+	index, err := b.loadStats()
 	if err != nil {
 		return "", err
 	}
 
+	playerStats := index.playerStats[playerID]
+	playerSeasons := seasonsForStats(playerStats)
 	if len(playerSeasons) == 0 {
 		playerSeasons = []int{time.Now().Year()}
 	}
 
 	selectedSeason := playerSeasons[0]
 
-	playerStatsBySeason := make(map[int][]models.Stat)
+	playerStatsBySeason := groupStatsBySeason(playerStats)
 	playerPositions := make(map[int]string)
 	var playerName string
 
 	for _, season := range playerSeasons {
-		stats, name, position, err := models.FetchPlayerStats(b.db.DB, playerID, season)
-		if err != nil {
-			return "", err
-		}
-		playerStatsBySeason[season] = stats
+		stats := playerStatsBySeason[season]
+		name := latestPlayerName(stats)
+		position := playerPosition(stats)
 		if position == "" {
 			position = "N/A"
 		}
@@ -223,16 +355,15 @@ func (b *Builder) RenderPlayer(playerID int) (string, error) {
 
 // RenderTeam builds the team page HTML for the supplied team metadata.
 func (b *Builder) RenderTeam(team Team) (string, error) {
-	teamSeasons, err := models.FetchTeamSeasons(b.db.DB, team.normalized)
+	index, err := b.loadStats()
 	if err != nil {
 		return "", err
 	}
 
+	teamStats := index.teamStats[team.normalized]
+	teamSeasons := seasonsForStats(teamStats)
 	if len(teamSeasons) == 0 {
-		teamSeasons, err = models.FetchSeasons(b.db.DB)
-		if err != nil {
-			return "", err
-		}
+		teamSeasons = index.seasons
 	}
 
 	if len(teamSeasons) == 0 {
@@ -241,15 +372,13 @@ func (b *Builder) RenderTeam(team Team) (string, error) {
 
 	selectedSeason := teamSeasons[0]
 
-	teamStatsBySeason := make(map[int][]models.Stat)
+	teamStatsBySeason := groupStatsBySeason(teamStats)
 	sparklinesBySeason := make(map[int][]models.PlayerStats)
 	var capitalizedTeamName string
 
 	for _, season := range teamSeasons {
-		stats, name, err := models.FetchTeamStats(b.db.DB, team.normalized, season)
-		if err != nil {
-			return "", err
-		}
+		stats := normalizeTeamSeasonPositions(teamStatsBySeason[season])
+		name := teamName(stats)
 		teamStatsBySeason[season] = stats
 		sparklinesBySeason[season] = models.MapStatsByPlayerID(stats)
 
