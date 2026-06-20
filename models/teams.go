@@ -9,12 +9,13 @@ import (
 )
 
 func FetchTeamStats(db *sql.DB, teamName string, season int) ([]Stat, string, error) {
+	seasonStart, nextSeasonStart := seasonDateRange(season)
 	rows, err := db.Query(`
 	WITH latest_positions AS (
 		SELECT player_id, primary_position,
 			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY date DESC) as rn
 		FROM outs_above_average
-		WHERE LOWER(team) = ? AND primary_position IS NOT NULL AND strftime('%Y', date) = ?
+		WHERE LOWER(team) = ? AND primary_position IS NOT NULL AND date >= ? AND date < ?
 	)
 	SELECT
 		o.player_id,
@@ -28,8 +29,8 @@ func FetchTeamStats(db *sql.DB, teamName string, season int) ([]Stat, string, er
 		o.diff_success_rate
 	FROM outs_above_average o
 	LEFT JOIN latest_positions lp ON o.player_id = lp.player_id AND lp.rn = 1
-	WHERE LOWER(o.team) = ? AND strftime('%Y', o.date) = ?
-	ORDER BY o.last_name, o.date;`, teamName, strconv.Itoa(season), teamName, strconv.Itoa(season))
+	WHERE LOWER(o.team) = ? AND o.date >= ? AND o.date < ?
+	ORDER BY o.last_name, o.date;`, teamName, seasonStart, nextSeasonStart, teamName, seasonStart, nextSeasonStart)
 	if err != nil {
 		return nil, "", err
 	}

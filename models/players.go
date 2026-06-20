@@ -37,6 +37,7 @@ func FetchPlayers(db *sql.DB) ([]Player, error) {
 
 // FetchPlayerStats retrieves statistics for a specific player from the database.
 func FetchPlayerStats(db *sql.DB, playerID int, season int) ([]Stat, string, string, error) {
+	seasonStart, nextSeasonStart := seasonDateRange(season)
 	rows, err := db.Query(`
 	SELECT
 		player_id,
@@ -49,8 +50,8 @@ func FetchPlayerStats(db *sql.DB, playerID int, season int) ([]Stat, string, str
 		estimated_success_rate,
 		diff_success_rate
 	FROM outs_above_average
-	WHERE player_id = ? AND strftime('%Y', date) = ?
-	ORDER BY player_id, date;`, playerID, strconv.Itoa(season))
+	WHERE player_id = ? AND date >= ? AND date < ?
+	ORDER BY player_id, date;`, playerID, seasonStart, nextSeasonStart)
 	if err != nil {
 		return nil, "", "", err
 	}
