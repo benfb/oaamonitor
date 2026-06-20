@@ -345,6 +345,28 @@ func TestFetchPlayerDifferences_FallbackWithDateGap(t *testing.T) {
 	}
 }
 
+func TestFetchPlayerDifferencesOrdersByAbsoluteDifference(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		UPDATE outs_above_average SET oaa = 0 WHERE player_id = 2 AND date = '2023-08-15'
+	`); err != nil {
+		t.Fatalf("failed to update test data: %v", err)
+	}
+
+	diffs, err := FetchPlayerDifferences(db, 1)
+	if err != nil {
+		t.Fatalf("FetchPlayerDifferences returned error: %v", err)
+	}
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 difference, got %d", len(diffs))
+	}
+	if diffs[0].PlayerID != 2 || diffs[0].Difference != -6 {
+		t.Fatalf("expected biggest absolute move to be player 2 at -6, got player %d at %d", diffs[0].PlayerID, diffs[0].Difference)
+	}
+}
+
 func TestFetchNDayTrends(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
@@ -365,6 +387,28 @@ func TestFetchNDayTrends(t *testing.T) {
 
 	if len(trends) < 1 {
 		t.Errorf("Expected at least 1 trend, got %d", len(trends))
+	}
+}
+
+func TestFetchNDayTrendsOrdersByAbsoluteDifference(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		UPDATE outs_above_average SET oaa = 0 WHERE player_id = 2 AND date = '2023-08-15'
+	`); err != nil {
+		t.Fatalf("failed to update test data: %v", err)
+	}
+
+	trends, err := FetchNDayTrends(db, 30, 0)
+	if err != nil {
+		t.Fatalf("FetchNDayTrends returned error: %v", err)
+	}
+	if len(trends) == 0 {
+		t.Fatal("expected at least 1 trend")
+	}
+	if trends[0].PlayerID != 2 || trends[0].Difference != -6 {
+		t.Fatalf("expected biggest absolute trend to be player 2 at -6, got player %d at %d", trends[0].PlayerID, trends[0].Difference)
 	}
 }
 

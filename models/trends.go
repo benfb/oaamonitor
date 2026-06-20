@@ -38,7 +38,7 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 			WHERE current.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
 			AND previous.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average)))
 			AND current.oaa != previous.oaa
-			ORDER BY difference DESC
+			ORDER BY ABS(current.oaa - previous.oaa) DESC, difference DESC
 			LIMIT ?;
 			`, limit)
 	} else {
@@ -57,7 +57,7 @@ func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 			WHERE current.date = (SELECT MAX(date) FROM outs_above_average)
 			AND previous.date = (SELECT MAX(date) FROM outs_above_average WHERE date < (SELECT MAX(date) FROM outs_above_average))
 			AND current.oaa != previous.oaa
-			ORDER BY difference DESC
+			ORDER BY ABS(current.oaa - previous.oaa) DESC, difference DESC
 			LIMIT ?;`, limit)
 	}
 
@@ -122,7 +122,7 @@ func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, er
 		(end_oaa - start_oaa) as difference
 	FROM player_trends
 	WHERE rn = 1 AND ABS(end_oaa - start_oaa) > ?
-	ORDER BY difference DESC
+	ORDER BY ABS(end_oaa - start_oaa) DESC, difference DESC
 	LIMIT 100;
 	`
 	rows, err := db.Query(query, fmt.Sprintf("-%d days", daysAgo), threshold)
