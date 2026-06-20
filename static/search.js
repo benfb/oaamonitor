@@ -1,6 +1,23 @@
 let currentFocus = -1;
 let searchIndex = [];
 let searchIndexPromise = null;
+let currentResults = [];
+
+function normalizePlayerID(value) {
+    const id = Number(value);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+        return null;
+    }
+    return id;
+}
+
+function navigateToPlayer(value) {
+    const id = normalizePlayerID(value);
+    if (id === null) {
+        return;
+    }
+    window.location.href = `/player/${id}`;
+}
 
 function loadSearchIndex() {
     if (!searchIndexPromise) {
@@ -31,14 +48,18 @@ async function liveSearch() {
         resultsDiv.innerHTML = '';
         resultsDiv.style.display = 'none';
         currentFocus = -1;
+        currentResults = [];
         return;
     }
 
     await loadSearchIndex();
 
     const filtered = searchIndex.filter((player) =>
+        typeof player.name === 'string' &&
+        normalizePlayerID(player.id) !== null &&
         player.name.toLowerCase().includes(query)
     );
+    currentResults = filtered;
 
     resultsDiv.style.display = 'block';
     resultsDiv.innerHTML = '';
@@ -47,10 +68,9 @@ async function liveSearch() {
         const playerDiv = document.createElement('div');
         playerDiv.textContent = player.name;
         playerDiv.classList.add('search-result-item');
-        playerDiv.setAttribute('data-id', player.id);
         playerDiv.setAttribute('data-index', index);
         playerDiv.onclick = () => {
-            window.location.href = `/player/${player.id}`;
+            navigateToPlayer(player.id);
         };
         resultsDiv.appendChild(playerDiv);
     });
@@ -86,8 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
             addActive(items);
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            if (currentFocus > -1 && items[currentFocus]) {
-                window.location.href = `/player/${items[currentFocus].getAttribute('data-id')}`;
+            if (currentFocus > -1 && items[currentFocus] && currentResults[currentFocus]) {
+                navigateToPlayer(currentResults[currentFocus].id);
             }
         }
     });
