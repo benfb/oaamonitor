@@ -92,6 +92,65 @@ func TestProcessCSV_RollsBackOnParseError(t *testing.T) {
 	}
 }
 
+func TestProcessCSV_UsesHeaderNamesWhenColumnsAreReordered(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+
+	csvContent := strings.Join([]string{
+		"Col3,DiffSuccessRate,Name,EstimatedSuccessRate,PlayerID,Col11,ActualSuccessRate,OAA,Team,Col12,Col7,PrimaryPosition,Col8,Col9,Col10,Col5",
+		`x,10%,"Smith, John",80%,123,x,90%,5,Blue Jays,x,x,SS,x,x,x,x`,
+	}, "\n")
+
+	tmpFile, err := os.CreateTemp(dir, "data*.csv")
+	if err != nil {
+		t.Fatalf("failed to create temp csv: %v", err)
+	}
+	if _, err := tmpFile.WriteString(csvContent); err != nil {
+		t.Fatalf("failed to write csv: %v", err)
+	}
+	tmpFile.Close()
+
+	if err := processCSV(context.Background(), tmpFile.Name(), dbPath); err != nil {
+		t.Fatalf("processCSV returned error: %v", err)
+	}
+
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer db.Close()
+
+	var (
+		playerID             int
+		firstName            string
+		lastName             string
+		fullName             string
+		team                 string
+		primaryPosition      string
+		oaa                  int
+		actualSuccessRate    float64
+		estimatedSuccessRate float64
+		diffSuccessRate      float64
+	)
+	if err := db.QueryRow(`
+		SELECT player_id, first_name, last_name, full_name, team, primary_position, oaa,
+			actual_success_rate, estimated_success_rate, diff_success_rate
+		FROM outs_above_average
+	`).Scan(&playerID, &firstName, &lastName, &fullName, &team, &primaryPosition, &oaa, &actualSuccessRate, &estimatedSuccessRate, &diffSuccessRate); err != nil {
+		t.Fatalf("failed to read inserted row: %v", err)
+	}
+
+	if playerID != 123 || firstName != "John" || lastName != "Smith" || fullName != "John Smith" {
+		t.Fatalf("unexpected player identity: id=%d first=%q last=%q full=%q", playerID, firstName, lastName, fullName)
+	}
+	if team != "Blue Jays" || primaryPosition != "SS" || oaa != 5 {
+		t.Fatalf("unexpected player fields: team=%q position=%q oaa=%d", team, primaryPosition, oaa)
+	}
+	if actualSuccessRate != 0.9 || estimatedSuccessRate != 0.8 || diffSuccessRate != 0.1 {
+		t.Fatalf("unexpected success rates: actual=%f estimated=%f diff=%f", actualSuccessRate, estimatedSuccessRate, diffSuccessRate)
+	}
+}
+
 func TestProcessCSV_RollsBackOnReadError(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")

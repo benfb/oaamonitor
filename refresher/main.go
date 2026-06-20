@@ -100,9 +100,9 @@ func processCSV(ctx context.Context, filepath, dbPath string) error {
 		return fmt.Errorf("failed to read CSV header: %v", err)
 	}
 
-	expectedFields := 16
-	if len(header) != expectedFields {
-		return fmt.Errorf("unexpected number of header fields: got %d, want %d", len(header), expectedFields)
+	columns, err := resolveCSVColumns(header)
+	if err != nil {
+		return err
 	}
 
 	db, err := sql.Open("sqlite3", "file:"+dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
@@ -141,8 +141,8 @@ func processCSV(ctx context.Context, filepath, dbPath string) error {
 			return fmt.Errorf("error reading CSV record: %v", err)
 		}
 
-		if err := processRecord(stmt, record, expectedFields); err != nil {
-			return fmt.Errorf("error processing record %v: %w", record[0], err)
+		if err := processRecord(stmt, record, columns); err != nil {
+			return fmt.Errorf("error processing record %v: %w", columns.value(record, csvColumnName), err)
 		}
 	}
 
@@ -211,46 +211,171 @@ func prepareInsertStatement(db interface {
 	return db.Prepare(insertSQL)
 }
 
-func processRecord(stmt *sql.Stmt, record []string, expectedFields int) error {
-	if len(record) != expectedFields {
-		return fmt.Errorf("unexpected number of fields: got %d, want %d", len(record), expectedFields)
+type csvColumn string
+
+const (
+	csvColumnName                 csvColumn = "name"
+	csvColumnPlayerID             csvColumn = "player ID"
+	csvColumnTeam                 csvColumn = "team"
+	csvColumnPrimaryPosition      csvColumn = "primary position"
+	csvColumnOAA                  csvColumn = "OAA"
+	csvColumnActualSuccessRate    csvColumn = "actual success rate"
+	csvColumnEstimatedSuccessRate csvColumn = "estimated success rate"
+	csvColumnDiffSuccessRate      csvColumn = "diff success rate"
+)
+
+type csvColumns map[csvColumn]int
+
+var requiredCSVColumns = map[csvColumn][]string{
+	csvColumnName: {
+		"name",
+		"player",
+		"playername",
+		"fielder",
+		"fieldername",
+		"fielder_name",
+		"entityname",
+	},
+	csvColumnPlayerID: {
+		"playerid",
+		"player_id",
+		"mlbid",
+		"mlb_id",
+	},
+	csvColumnTeam: {
+		"team",
+		"teamname",
+		"team_name",
+	},
+	csvColumnPrimaryPosition: {
+		"primaryposition",
+		"primary_position",
+		"primarypos",
+		"primary_pos",
+		"primaryposformatted",
+		"primary_pos_formatted",
+		"position",
+		"pos",
+	},
+	csvColumnOAA: {
+		"oaa",
+		"outsaboveaverage",
+		"outs_above_average",
+	},
+	csvColumnActualSuccessRate: {
+		"actualsuccessrate",
+		"actual_success_rate",
+		"actualsuccessrateformatted",
+		"actual_success_rate_formatted",
+	},
+	csvColumnEstimatedSuccessRate: {
+		"estimatedsuccessrate",
+		"estimated_success_rate",
+		"estimatedsuccessrateformatted",
+		"estimated_success_rate_formatted",
+	},
+	csvColumnDiffSuccessRate: {
+		"diffsuccessrate",
+		"diff_success_rate",
+		"diffsuccessrateformatted",
+		"diff_success_rate_formatted",
+		"differenceinsuccessrate",
+		"difference_in_success_rate",
+	},
+}
+
+func resolveCSVColumns(header []string) (csvColumns, error) {
+	indexes := make(map[string]int, len(header))
+	for i, name := range header {
+		indexes[normalizeCSVHeader(name)] = i
 	}
 
-	nameParts := strings.Split(record[0], ",")
+	columns := make(csvColumns, len(requiredCSVColumns))
+	for column, aliases := range requiredCSVColumns {
+		index, ok := findCSVColumn(indexes, aliases)
+		if !ok {
+			return nil, fmt.Errorf("CSV header missing required column %q; got %v", column, header)
+		}
+		columns[column] = index
+	}
+
+	return columns, nil
+}
+
+func findCSVColumn(indexes map[string]int, aliases []string) (int, bool) {
+	for _, alias := range aliases {
+		if index, ok := indexes[normalizeCSVHeader(alias)]; ok {
+			return index, true
+		}
+	}
+	return 0, false
+}
+
+func normalizeCSVHeader(header string) string {
+	header = strings.ToLower(strings.TrimSpace(header))
+	var b strings.Builder
+	for _, r := range header {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+func (columns csvColumns) value(record []string, column csvColumn) string {
+	index, ok := columns[column]
+	if !ok || index < 0 || index >= len(record) {
+		return ""
+	}
+	return record[index]
+}
+
+func processRecord(stmt *sql.Stmt, record []string, columns csvColumns) error {
+	name := columns.value(record, csvColumnName)
+	if name == "" {
+		return fmt.Errorf("missing %s", csvColumnName)
+	}
+
+	nameParts := strings.Split(name, ",")
 	if len(nameParts) != 2 {
-		return fmt.Errorf("invalid name format: %v", record[0])
+		return fmt.Errorf("invalid name format: %v", name)
 	}
 	firstName := strings.TrimSpace(nameParts[1])
 	lastName := strings.TrimSpace(nameParts[0])
 	fullName := fmt.Sprintf("%s %s", firstName, lastName)
 
-	playerID, err := strconv.Atoi(record[1])
+	playerIDValue := columns.value(record, csvColumnPlayerID)
+	playerID, err := strconv.Atoi(playerIDValue)
 	if err != nil {
-		return fmt.Errorf("invalid player ID: %v", record[1])
+		return fmt.Errorf("invalid player ID: %v", playerIDValue)
 	}
 
-	team := record[2]
+	team := columns.value(record, csvColumnTeam)
 
-	oaa, err := strconv.Atoi(record[6])
+	oaaValue := columns.value(record, csvColumnOAA)
+	oaa, err := strconv.Atoi(oaaValue)
 	if err != nil {
-		return fmt.Errorf("invalid OAA value: %v", record[6])
+		return fmt.Errorf("invalid OAA value: %v", oaaValue)
 	}
 
-	primaryPosition := record[4]
+	primaryPosition := columns.value(record, csvColumnPrimaryPosition)
 
-	actualSuccessRate, err := parsePercentage(record[13])
+	actualSuccessRateValue := columns.value(record, csvColumnActualSuccessRate)
+	actualSuccessRate, err := parsePercentage(actualSuccessRateValue)
 	if err != nil {
-		return fmt.Errorf("invalid actual success rate: %v", record[13])
+		return fmt.Errorf("invalid actual success rate: %v", actualSuccessRateValue)
 	}
 
-	estimatedSuccessRate, err := parsePercentage(record[14])
+	estimatedSuccessRateValue := columns.value(record, csvColumnEstimatedSuccessRate)
+	estimatedSuccessRate, err := parsePercentage(estimatedSuccessRateValue)
 	if err != nil {
-		return fmt.Errorf("invalid estimated success rate: %v", record[14])
+		return fmt.Errorf("invalid estimated success rate: %v", estimatedSuccessRateValue)
 	}
 
-	diffSuccessRate, err := parsePercentage(record[15])
+	diffSuccessRateValue := columns.value(record, csvColumnDiffSuccessRate)
+	diffSuccessRate, err := parsePercentage(diffSuccessRateValue)
 	if err != nil {
-		return fmt.Errorf("invalid diff success rate: %v", record[15])
+		return fmt.Errorf("invalid diff success rate: %v", diffSuccessRateValue)
 	}
 
 	_, err = stmt.Exec(playerID, firstName, lastName, fullName, team, primaryPosition, oaa, actualSuccessRate, estimatedSuccessRate, diffSuccessRate)
