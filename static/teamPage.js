@@ -1,14 +1,8 @@
-const backgroundPlugin = {
-  id: "customCanvasBackgroundColor",
-  beforeDraw: (chart, args, options) => {
-    const { ctx } = chart;
-    ctx.save();
-    ctx.globalCompositeOperation = "destination-over";
-    ctx.fillStyle = options.color || "#99ffff";
-    ctx.fillRect(0, 0, chart.width, chart.height);
-    ctx.restore();
-  },
-};
+const {
+  backgroundPlugin,
+  chartBackgroundColor,
+  gridColor,
+} = window.OAAMonitorCharts;
 
 const colorPalette = [
   "#FF6384",
@@ -36,14 +30,6 @@ const colorPalette = [
   "#D35400",
   "#8E44AD",
 ];
-
-const prefersDarkMode =
-  window.matchMedia &&
-  window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-if (prefersDarkMode) {
-  Chart.defaults.color = "#f0f4f8";
-}
 
 function buildDatasets(teamStats) {
   const players = new Map();
@@ -104,7 +90,7 @@ function createTeamChart(ctx, teamName, stats) {
             },
           },
           grid: {
-            color: prefersDarkMode ? "#1f2229" : "#e5e7eb",
+            color: gridColor,
           },
           ticks: {
             maxRotation: 45,
@@ -124,13 +110,13 @@ function createTeamChart(ctx, teamName, stats) {
             },
           },
           grid: {
-            color: prefersDarkMode ? "#1f2229" : "#e5e7eb",
+            color: gridColor,
           },
         },
       },
       plugins: {
         customCanvasBackgroundColor: {
-          color: prefersDarkMode ? "#111318" : "#ffffff",
+          color: chartBackgroundColor,
         },
         title: {
           display: true,

@@ -1,22 +1,8 @@
-const backgroundPlugin = {
-  id: "customCanvasBackgroundColor",
-  beforeDraw: (chart, args, options) => {
-    const { ctx } = chart;
-    ctx.save();
-    ctx.globalCompositeOperation = "destination-over";
-    ctx.fillStyle = options.color || "#99ffff";
-    ctx.fillRect(0, 0, chart.width, chart.height);
-    ctx.restore();
-  },
-};
-
-const prefersDarkMode =
-  window.matchMedia &&
-  window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-if (prefersDarkMode) {
-  Chart.defaults.color = "#f0f4f8";
-}
+const {
+  backgroundPlugin,
+  chartBackgroundColor,
+  gridColor,
+} = window.OAAMonitorCharts;
 
 function formatStats(stats) {
   return stats.map((stat) => ({
@@ -54,7 +40,7 @@ function createChart(ctx, playerName, position, stats) {
             tooltipFormat: "MMM d, yyyy",
           },
           grid: {
-            color: prefersDarkMode ? "#1f2229" : "#e5e7eb",
+            color: gridColor,
           },
         },
         y: {
@@ -62,13 +48,13 @@ function createChart(ctx, playerName, position, stats) {
             stepSize: 1,
           },
           grid: {
-            color: prefersDarkMode ? "#1f2229" : "#e5e7eb",
+            color: gridColor,
           },
         },
       },
       plugins: {
         customCanvasBackgroundColor: {
-          color: prefersDarkMode ? "#111318" : "#ffffff",
+          color: chartBackgroundColor,
         },
         title: {
           display: true,
