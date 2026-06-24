@@ -151,6 +151,59 @@ func TestProcessCSV_UsesHeaderNamesWhenColumnsAreReordered(t *testing.T) {
 	}
 }
 
+func TestProcessCSV_UsesBaseballSavantHeaders(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+
+	csvContent := strings.Join([]string{
+		`"last_name, first_name",player_id,display_team_name,year,primary_pos_formatted,fielding_runs_prevented,outs_above_average,outs_above_average_infront,outs_above_average_lateral_toward3bline,outs_above_average_lateral_toward1bline,outs_above_average_behind,outs_above_average_rhh,outs_above_average_lhh,actual_success_rate_formatted,adj_estimated_success_rate_formatted,diff_success_rate_formatted`,
+		`"Smith, John",123,Blue Jays,2026,SS,4,5,1,2,1,1,3,2,90%,80%,10%`,
+	}, "\n")
+
+	tmpFile, err := os.CreateTemp(dir, "data*.csv")
+	if err != nil {
+		t.Fatalf("failed to create temp csv: %v", err)
+	}
+	if _, err := tmpFile.WriteString(csvContent); err != nil {
+		t.Fatalf("failed to write csv: %v", err)
+	}
+	tmpFile.Close()
+
+	if err := processCSV(context.Background(), tmpFile.Name(), dbPath); err != nil {
+		t.Fatalf("processCSV returned error: %v", err)
+	}
+
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer db.Close()
+
+	var (
+		fullName             string
+		team                 string
+		primaryPosition      string
+		oaa                  int
+		actualSuccessRate    float64
+		estimatedSuccessRate float64
+		diffSuccessRate      float64
+	)
+	if err := db.QueryRow(`
+		SELECT full_name, team, primary_position, oaa,
+			actual_success_rate, estimated_success_rate, diff_success_rate
+		FROM outs_above_average
+	`).Scan(&fullName, &team, &primaryPosition, &oaa, &actualSuccessRate, &estimatedSuccessRate, &diffSuccessRate); err != nil {
+		t.Fatalf("failed to read inserted row: %v", err)
+	}
+
+	if fullName != "John Smith" || team != "Blue Jays" || primaryPosition != "SS" || oaa != 5 {
+		t.Fatalf("unexpected player data: name=%q team=%q position=%q oaa=%d", fullName, team, primaryPosition, oaa)
+	}
+	if actualSuccessRate != 0.9 || estimatedSuccessRate != 0.8 || diffSuccessRate != 0.1 {
+		t.Fatalf("unexpected success rates: actual=%f estimated=%f diff=%f", actualSuccessRate, estimatedSuccessRate, diffSuccessRate)
+	}
+}
+
 func TestProcessCSV_RollsBackOnReadError(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")

@@ -193,6 +193,7 @@ var requiredCSVColumns = map[csvColumn][]string{
 		"name",
 		"player",
 		"playername",
+		"last_name, first_name",
 		"fielder",
 		"fieldername",
 		"fielder_name",
@@ -208,6 +209,7 @@ var requiredCSVColumns = map[csvColumn][]string{
 		"team",
 		"teamname",
 		"team_name",
+		"display_team_name",
 	},
 	csvColumnPrimaryPosition: {
 		"primaryposition",
@@ -235,6 +237,7 @@ var requiredCSVColumns = map[csvColumn][]string{
 		"estimated_success_rate",
 		"estimatedsuccessrateformatted",
 		"estimated_success_rate_formatted",
+		"adj_estimated_success_rate_formatted",
 	},
 	csvColumnDiffSuccessRate: {
 		"diffsuccessrate",
