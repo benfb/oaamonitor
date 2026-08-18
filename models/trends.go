@@ -147,7 +147,7 @@ func FetchNDayTrends(db *sql.DB, daysAgo, threshold int) ([]PlayerDifference, er
 			position,
 			FIRST_VALUE(oaa) OVER (PARTITION BY player_id ORDER BY date ASC) as start_oaa,
 			FIRST_VALUE(oaa) OVER (PARTITION BY player_id ORDER BY date DESC) as end_oaa,
-			ROW_NUMBER() OVER (PARTITION BY player_id) as rn
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY date DESC) as rn
 		FROM recent_data
 	),
 	trends AS (

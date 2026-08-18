@@ -412,6 +412,39 @@ func TestFetchNDayTrends(t *testing.T) {
 	}
 }
 
+func TestFetchNDayTrendsUsesLatestTeamMetadata(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	_, err := db.Exec(`
+		UPDATE outs_above_average
+		SET date = date('now', '-5 days')
+		WHERE player_id = 1 AND date = '2023-08-01';
+
+		UPDATE outs_above_average
+		SET date = date('now'), team = 'Mets'
+		WHERE player_id = 1 AND date = '2023-08-15';
+	`)
+	if err != nil {
+		t.Fatalf("failed to prepare recent player history: %v", err)
+	}
+
+	trends, err := FetchNDayTrends(db, 7, 0)
+	if err != nil {
+		t.Fatalf("FetchNDayTrends returned error: %v", err)
+	}
+
+	for _, trend := range trends {
+		if trend.PlayerID == 1 {
+			if trend.Team != "Mets" {
+				t.Fatalf("expected latest team metadata Mets, got %q", trend.Team)
+			}
+			return
+		}
+	}
+	t.Fatal("expected player 1 in trends")
+}
+
 func TestFetchNDayTrendsKeepsSignedOrderAfterIncludingNegativeMovers(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
