@@ -37,7 +37,7 @@ func TestExternalScriptsUseSubresourceIntegrity(t *testing.T) {
 	}
 
 	for _, src := range []string{
-		"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js",
+		"https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.js",
 		"https://cdn.jsdelivr.net/npm/date-fns@3.6.0/cdn.min.js",
 		"https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js",
 		"https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0",
