@@ -2,11 +2,15 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -115,6 +119,68 @@ func TestS3ClientGetObjectNotFound(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "object not found") {
 		t.Errorf("Expected 'object not found' error, got: %v", err)
+	}
+}
+
+func TestS3ClientLimitsErrorBody(t *testing.T) {
+	client := NewS3Client("test-key", "test-secret", "us-east-1", "https://example.com")
+	client.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return newResponse(http.StatusInternalServerError, strings.Repeat("x", maxErrorBodyBytes*2)), nil
+		}),
+	}
+
+	_, err := client.GetObject(context.Background(), "test-bucket", "test-key.db")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if len(err.Error()) > maxErrorBodyBytes+64 {
+		t.Fatalf("expected bounded error body, got %d bytes", len(err.Error()))
+	}
+}
+
+func TestDownloadDatabaseValidatesBeforeReplacing(t *testing.T) {
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "source.db")
+	db, err := sql.Open("sqlite3", sourcePath)
+	if err != nil {
+		t.Fatalf("open fixture database: %v", err)
+	}
+	if _, err := db.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY)"); err != nil {
+		t.Fatalf("create fixture database: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close fixture database: %v", err)
+	}
+	validDatabase, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatalf("read fixture database: %v", err)
+	}
+
+	client := NewS3Client("test-key", "test-secret", "us-east-1", "https://example.com")
+	client.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return newResponse(http.StatusOK, string(validDatabase)), nil
+		}),
+	}
+	targetPath := filepath.Join(dir, "nested", "download.db")
+	if err := downloadDatabase(context.Background(), client, targetPath); err != nil {
+		t.Fatalf("downloadDatabase returned error: %v", err)
+	}
+	if err := validateSQLite(targetPath); err != nil {
+		t.Fatalf("downloaded database did not validate: %v", err)
+	}
+
+	client.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return newResponse(http.StatusOK, "not a SQLite database"), nil
+		}),
+	}
+	if err := downloadDatabase(context.Background(), client, targetPath); err == nil {
+		t.Fatal("expected invalid database download to fail")
+	}
+	if err := validateSQLite(targetPath); err != nil {
+		t.Fatalf("invalid download replaced valid database: %v", err)
 	}
 }
 

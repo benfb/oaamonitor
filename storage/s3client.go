@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const maxErrorBodyBytes = 4 << 10
+
 // S3Client is a lightweight S3-compatible client using only standard library
 type S3Client struct {
 	AccessKeyID     string
@@ -63,7 +65,7 @@ func (c *S3Client) GetObject(ctx context.Context, bucket, key string) (io.ReadCl
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
 		resp.Body.Close()
 		return nil, fmt.Errorf("S3 error %d: %s", resp.StatusCode, string(body))
 	}
@@ -114,7 +116,7 @@ func (c *S3Client) PutObject(ctx context.Context, bucket, key string, reader io.
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
 		return fmt.Errorf("S3 error %d: %s", resp.StatusCode, string(body))
 	}
 
