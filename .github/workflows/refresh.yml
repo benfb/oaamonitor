@@ -8,6 +8,10 @@ on:
     - cron: "0 2 * * *" # 10pm EST
   workflow_dispatch:
 
+concurrency:
+  group: refresh-oaa-data
+  cancel-in-progress: false
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
