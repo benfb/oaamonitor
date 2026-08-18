@@ -103,7 +103,13 @@ func MapStatsByPlayerID(stats []Stat) []PlayerStats {
 	}
 
 	sort.Slice(playerStatsList, func(i, j int) bool {
-		return playerStatsList[i].LatestOAA > playerStatsList[j].LatestOAA
+		if playerStatsList[i].LatestOAA != playerStatsList[j].LatestOAA {
+			return playerStatsList[i].LatestOAA > playerStatsList[j].LatestOAA
+		}
+		if playerStatsList[i].Name != playerStatsList[j].Name {
+			return playerStatsList[i].Name < playerStatsList[j].Name
+		}
+		return playerStatsList[i].PlayerID < playerStatsList[j].PlayerID
 	})
 
 	return playerStatsList

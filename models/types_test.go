@@ -131,6 +131,27 @@ func TestMapStatsByPlayerID(t *testing.T) {
 	}
 }
 
+func TestMapStatsByPlayerIDUsesStableTieBreakers(t *testing.T) {
+	stats := []Stat{
+		{PlayerID: 3, Name: "Zed Player", OAA: 2, Date: time.Now()},
+		{PlayerID: 2, Name: "Amy Player", OAA: 2, Date: time.Now()},
+		{PlayerID: 1, Name: "Amy Player", OAA: 2, Date: time.Now()},
+	}
+
+	result := MapStatsByPlayerID(stats)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 players, got %d", len(result))
+	}
+
+	gotIDs := []int{result[0].PlayerID, result[1].PlayerID, result[2].PlayerID}
+	wantIDs := []int{1, 2, 3}
+	for i, wantID := range wantIDs {
+		if gotIDs[i] != wantID {
+			t.Fatalf("expected stable order %v, got %v", wantIDs, gotIDs)
+		}
+	}
+}
+
 func TestGetTeamAbbreviation(t *testing.T) {
 	tests := []struct {
 		teamName string
