@@ -87,7 +87,11 @@ func downloadDatabase(ctx context.Context, client *S3Client, dbPath string) erro
 }
 
 func validateSQLite(path string) error {
-	u := url.URL{Scheme: "file", Path: path, RawQuery: "mode=ro"}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve database path: %w", err)
+	}
+	u := url.URL{Scheme: "file", Path: absPath, RawQuery: "mode=ro"}
 	db, err := sql.Open("sqlite3", u.String())
 	if err != nil {
 		return err

@@ -141,6 +141,7 @@ func TestS3ClientLimitsErrorBody(t *testing.T) {
 
 func TestDownloadDatabaseValidatesBeforeReplacing(t *testing.T) {
 	dir := t.TempDir()
+	t.Chdir(dir)
 	sourcePath := filepath.Join(dir, "source.db")
 	db, err := sql.Open("sqlite3", sourcePath)
 	if err != nil {
@@ -163,7 +164,7 @@ func TestDownloadDatabaseValidatesBeforeReplacing(t *testing.T) {
 			return newResponse(http.StatusOK, string(validDatabase)), nil
 		}),
 	}
-	targetPath := filepath.Join(dir, "nested", "download.db")
+	targetPath := filepath.Join("nested", "download.db")
 	if err := downloadDatabase(context.Background(), client, targetPath); err != nil {
 		t.Fatalf("downloadDatabase returned error: %v", err)
 	}
