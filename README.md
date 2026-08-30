@@ -27,7 +27,7 @@ The builder renders every player and team page into the `public/` directory, cop
 GitHub Actions is wired to:
 
 - Refresh the database on the cron schedule with `go run ./cmd/fetch -upload` and push it to S3-compatible storage (see `.github/workflows/refresh.yml`).
-- Deploy the static site to GitHub Pages on every push to `main` after downloading the latest database from storage (see `.github/workflows/deploy.yml`).
+- Deploy the static site to Bunny Storage on every push to `main` after downloading the latest database from storage (see `.github/workflows/deploy.yml`).
 
 Set these repository secrets so both workflows can authenticate against your storage bucket:
 
@@ -36,4 +36,9 @@ Set these repository secrets so both workflows can authenticate against your sto
 - `AWS_REGION`
 - `AWS_ENDPOINT_URL_S3` (optional; defaults to `https://s3.amazonaws.com`, override for other S3-compatible providers)
 
-GitHub Pages handles the hosting; once the `deploy` workflow runs, the published site is available under the repository’s Pages URL (or any custom domain configured in the repo settings).
+The deployment workflow also needs the Bunny Storage zone password as the
+`BUNNY_STORAGE_PASSWORD` repository secret. Set `BUNNY_STORAGE_S3_ENDPOINT`
+and `BUNNY_STORAGE_S3_REGION` as repository variables using the S3 connection
+details shown for the `oaamonitor-benbailey-me-site` storage zone. The workflow
+syncs `public/` to the zone and removes remote files that are no longer in the
+generated site.
