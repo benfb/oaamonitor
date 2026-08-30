@@ -40,7 +40,36 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - name: Download latest database from storage
+      - name: Check for database in Bunny Storage
+        id: bunny_database
+        env:
+          AWS_ACCESS_KEY_ID: oaamonitor-benbailey-me-site
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+          AWS_REGION: NY
+        run: |
+          if output=$(aws s3api head-object \
+            --bucket oaamonitor-benbailey-me-site \
+            --key downloads/oaamonitor.db \
+            --endpoint-url https://ny-s3.storage.bunnycdn.com 2>&1); then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$output" == *"(404)"* || "$output" == *"Not Found"* ]]; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "$output" >&2
+            exit 1
+          fi
+      - name: Download latest database from Bunny Storage
+        if: steps.bunny_database.outputs.exists == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: oaamonitor-benbailey-me-site
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+          AWS_REGION: NY
+          AWS_ENDPOINT_URL_S3: https://ny-s3.storage.bunnycdn.com
+          DATABASE_STORAGE_BUCKET: oaamonitor-benbailey-me-site
+          DATABASE_STORAGE_KEY: downloads/oaamonitor.db
+        run: go run ./cmd/fetch -from-storage
+      - name: Bootstrap database from previous storage
+        if: steps.bunny_database.outputs.exists == 'false'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

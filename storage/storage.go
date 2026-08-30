@@ -13,6 +13,11 @@ import (
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
+const (
+	defaultDatabaseBucket = "oaamonitor"
+	defaultDatabaseKey    = "oaamonitor.db"
+)
+
 // getS3Client creates a new S3 client from environment variables
 func getS3Client() (*S3Client, error) {
 	accessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
@@ -35,6 +40,20 @@ func getS3Client() (*S3Client, error) {
 	return NewS3Client(accessKeyID, secretAccessKey, region, endpoint), nil
 }
 
+func databaseObjectLocation() (string, string) {
+	bucket := os.Getenv("DATABASE_STORAGE_BUCKET")
+	if bucket == "" {
+		bucket = defaultDatabaseBucket
+	}
+
+	key := os.Getenv("DATABASE_STORAGE_KEY")
+	if key == "" {
+		key = defaultDatabaseKey
+	}
+
+	return bucket, key
+}
+
 func DownloadDatabase(ctx context.Context, dbPath string) error {
 	client, err := getS3Client()
 	if err != nil {
@@ -50,7 +69,8 @@ func downloadDatabase(ctx context.Context, client *S3Client, dbPath string) erro
 	}
 
 	// Download the SQLite database file
-	resp, err := client.GetObject(ctx, "oaamonitor", "oaamonitor.db")
+	bucket, key := databaseObjectLocation()
+	resp, err := client.GetObject(ctx, bucket, key)
 	if err != nil {
 		log.Printf("Failed to download database file: %v", err)
 		return err
@@ -130,7 +150,8 @@ func UploadDatabase(ctx context.Context, dbPath string) error {
 		return err
 	}
 
-	err = client.PutObject(ctx, "oaamonitor", "oaamonitor.db", file, fileInfo.Size())
+	bucket, key := databaseObjectLocation()
+	err = client.PutObject(ctx, bucket, key, file, fileInfo.Size())
 	if err != nil {
 		log.Printf("Failed to upload database file: %v", err)
 		return err

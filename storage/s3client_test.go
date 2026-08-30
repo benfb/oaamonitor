@@ -41,6 +41,32 @@ func TestNewS3Client(t *testing.T) {
 	}
 }
 
+func TestDatabaseObjectLocationDefaults(t *testing.T) {
+	t.Setenv("DATABASE_STORAGE_BUCKET", "")
+	t.Setenv("DATABASE_STORAGE_KEY", "")
+
+	bucket, key := databaseObjectLocation()
+	if bucket != "oaamonitor" {
+		t.Fatalf("expected default bucket oaamonitor, got %q", bucket)
+	}
+	if key != "oaamonitor.db" {
+		t.Fatalf("expected default key oaamonitor.db, got %q", key)
+	}
+}
+
+func TestDatabaseObjectLocationFromEnvironment(t *testing.T) {
+	t.Setenv("DATABASE_STORAGE_BUCKET", "site-zone")
+	t.Setenv("DATABASE_STORAGE_KEY", "downloads/site.db")
+
+	bucket, key := databaseObjectLocation()
+	if bucket != "site-zone" {
+		t.Fatalf("expected configured bucket site-zone, got %q", bucket)
+	}
+	if key != "downloads/site.db" {
+		t.Fatalf("expected configured key downloads/site.db, got %q", key)
+	}
+}
+
 func TestS3ClientGetObject(t *testing.T) {
 	client := NewS3Client("test-access-key", "test-secret-key", "us-east-1", "https://example.com")
 	client.client = &http.Client{
