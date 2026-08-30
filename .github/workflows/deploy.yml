@@ -53,11 +53,10 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: oaamonitor-benbailey-me-site
           AWS_SECRET_ACCESS_KEY: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
-          AWS_REGION: ${{ vars.BUNNY_STORAGE_S3_REGION }}
-          BUNNY_STORAGE_S3_ENDPOINT: ${{ vars.BUNNY_STORAGE_S3_ENDPOINT }}
+          AWS_REGION: NY
         run: >-
           aws s3 sync public/
           s3://oaamonitor-benbailey-me-site/
-          --endpoint-url "$BUNNY_STORAGE_S3_ENDPOINT"
+          --endpoint-url https://ny-s3.storage.bunnycdn.com
           --delete
           --no-progress
