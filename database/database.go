@@ -106,16 +106,6 @@ func (db *DB) Close() error {
 	return db.DB.Close()
 }
 
-// GetDatabaseSize returns the size of the database file in a human-readable format
-func GetDatabaseSize(dbPath string) (string, error) {
-	fileInfo, err := os.Stat(dbPath)
-	if err != nil {
-		return "", err
-	}
-	size := fileInfo.Size()
-	return fmt.Sprintf("%.2f MB", float64(size)/1024/1024), nil
-}
-
 func dsn(dbPath string) string {
 	return "file:" + dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
 }

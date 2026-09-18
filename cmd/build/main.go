@@ -120,7 +120,7 @@ func buildSearchIndex(outputDir string, players []models.Player) error {
 		})
 	}
 
-	data, err := json.MarshalIndent(entries, "", "  ")
+	data, err := json.Marshal(entries)
 	if err != nil {
 		return err
 	}
@@ -222,11 +222,6 @@ func main() {
 
 	if err := db.Close(); err != nil {
 		log.Fatalf("failed to close database: %v", err)
-	}
-
-	downloadDir := filepath.Join(cfgFlags.outputDir, "downloads")
-	if err := copyFile(cfg.DatabasePath, filepath.Join(downloadDir, "oaamonitor.db")); err != nil {
-		log.Fatalf("failed to copy database file: %v", err)
 	}
 
 	if err := buildSearchIndex(cfgFlags.outputDir, players); err != nil {

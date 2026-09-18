@@ -238,11 +238,6 @@ func (b *Builder) RenderIndex(players []models.Player) (string, error) {
 		return "", err
 	}
 
-	dbSize, err := database.GetDatabaseSize(b.cfg.DatabasePath)
-	if err != nil {
-		dbSize = "Unknown"
-	}
-
 	latestSnapshotDate, err := models.FetchLatestSnapshotDate(b.db.DB)
 	if err != nil {
 		return "", err
@@ -255,7 +250,6 @@ func (b *Builder) RenderIndex(players []models.Player) (string, error) {
 		PlayerDifferences  []models.PlayerDifference
 		SevenDayTrends     []models.PlayerDifference
 		ThirtyDayTrends    []models.PlayerDifference
-		DatabaseSize       string
 		LatestSnapshotDate string
 	}{
 		Title:              "Outs Above Average Monitor",
@@ -264,7 +258,6 @@ func (b *Builder) RenderIndex(players []models.Player) (string, error) {
 		PlayerDifferences:  playerDifferences,
 		SevenDayTrends:     sevenDayTrends,
 		ThirtyDayTrends:    thirtyDayTrends,
-		DatabaseSize:       dbSize,
 		LatestSnapshotDate: latestSnapshotDate,
 	}
 
