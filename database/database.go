@@ -70,14 +70,8 @@ func EnsureSchema(db *sql.DB) error {
 		return err
 	}
 
-	// The build reads whole tables and UNIQUE(player_id, date) covers the point lookups,
-	// so secondary indexes only cost file size. Drop any left by older versions.
-	for _, name := range []string{"idx_date", "idx_team_lower", "idx_name", "idx_team_date"} {
-		if _, err := db.Exec(`DROP INDEX IF EXISTS ` + name); err != nil {
-			return fmt.Errorf("failed to drop index %s: %v", name, err)
-		}
-	}
-
+	// No secondary indexes: the build reads whole tables and UNIQUE(player_id, date)
+	// covers the point lookups, so extra indexes only cost file size.
 	return nil
 }
 
