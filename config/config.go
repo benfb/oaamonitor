@@ -8,19 +8,17 @@ import (
 
 // Config is a struct that holds the configuration for the application.
 type Config struct {
-	DatabasePath     string
-	DownloadDatabase bool
-	UploadDatabase   bool
-	RequestTimeout   int
+	DatabasePath   string
+	UploadDatabase bool
+	RequestTimeout int
 }
 
 // NewConfig returns a new Config struct.
 func NewConfig() *Config {
 	return &Config{
-		DatabasePath:     GetEnvValue("DATABASE_PATH", "./data/oaamonitor.db"),
-		DownloadDatabase: GetEnvValue("DOWNLOAD_DATABASE", false),
-		UploadDatabase:   GetEnvValue("UPLOAD_DATABASE", false),
-		RequestTimeout:   GetEnvValue("REQUEST_TIMEOUT", 30),
+		DatabasePath:   GetEnvValue("DATABASE_PATH", "./data/oaamonitor.db"),
+		UploadDatabase: GetEnvValue("UPLOAD_DATABASE", false),
+		RequestTimeout: GetEnvValue("REQUEST_TIMEOUT", 30),
 	}
 }
 

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/models"
 	"github.com/benfb/oaamonitor/renderer"
@@ -23,7 +22,6 @@ type Team struct {
 // Builder prepares view data and renders templates for the static site.
 type Builder struct {
 	db          *database.DB
-	cfg         *config.Config
 	renderer    *renderer.Renderer
 	teams       []Team
 	teamsLoaded bool
@@ -36,8 +34,8 @@ type statIndex struct {
 	seasons     []int
 }
 
-// NewBuilder constructs a Builder backed by the provided database and config.
-func NewBuilder(db *database.DB, cfg *config.Config) (*Builder, error) {
+// NewBuilder constructs a Builder backed by the provided database.
+func NewBuilder(db *database.DB) (*Builder, error) {
 	r, err := renderer.New()
 	if err != nil {
 		return nil, err
@@ -45,7 +43,6 @@ func NewBuilder(db *database.DB, cfg *config.Config) (*Builder, error) {
 
 	return &Builder{
 		db:       db,
-		cfg:      cfg,
 		renderer: r,
 	}, nil
 }

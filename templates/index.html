@@ -1,3 +1,26 @@
+{{ define "diff-table" }}
+<table>
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Team</th>
+                <th>Position</th>
+                <th class="col-right">Δ OAA</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range . }}
+            <tr>
+                <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
+                <td>{{ .Team }}</td>
+                <td>{{ .Position }}</td>
+                <td class="col-right {{ if gt .Difference 0 }}positive{{ else if lt .Difference 0 }}negative{{ end }}">{{ .Difference }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+{{ end }}
+
 {{ template "header" . }}
 
 <div class="intro-row">
@@ -27,72 +50,15 @@
 </div>
 
 <div id="tab-daily">
-    <table>
-        <thead>
-            <tr>
-                <th>Player</th>
-                <th>Team</th>
-                <th>Position</th>
-                <th class="col-right">Δ OAA</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range .PlayerDifferences }}
-            <tr>
-                <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
-                <td>{{ .Team }}</td>
-                <td>{{ .Position }}</td>
-                <td class="col-right {{ if gt .Difference 0 }}positive{{ else if lt .Difference 0 }}negative{{ end }}">{{ .Difference }}</td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+    {{ template "diff-table" .PlayerDifferences }}
 </div>
 
 <div id="tab-weekly" style="display:none">
-    <table>
-        <thead>
-            <tr>
-                <th>Player</th>
-                <th>Team</th>
-                <th>Position</th>
-                <th class="col-right">Δ OAA</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range .SevenDayTrends }}
-            <tr>
-                <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
-                <td>{{ .Team }}</td>
-                <td>{{ .Position }}</td>
-                <td class="col-right {{ if gt .Difference 0 }}positive{{ else if lt .Difference 0 }}negative{{ end }}">{{ .Difference }}</td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+    {{ template "diff-table" .SevenDayTrends }}
 </div>
 
 <div id="tab-monthly" style="display:none">
-    <table>
-        <thead>
-            <tr>
-                <th>Player</th>
-                <th>Team</th>
-                <th>Position</th>
-                <th class="col-right">Δ OAA</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{ range .ThirtyDayTrends }}
-            <tr>
-                <td><a href="/player/{{ .PlayerID }}">{{ .Name }}</a></td>
-                <td>{{ .Team }}</td>
-                <td>{{ .Position }}</td>
-                <td class="col-right {{ if gt .Difference 0 }}positive{{ else if lt .Difference 0 }}negative{{ end }}">{{ .Difference }}</td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+    {{ template "diff-table" .ThirtyDayTrends }}
 </div>
 
 <script>

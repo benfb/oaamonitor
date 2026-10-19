@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
@@ -194,7 +195,7 @@ func TestDownloadDatabaseValidatesBeforeReplacing(t *testing.T) {
 	if err := downloadDatabase(context.Background(), client, targetPath); err != nil {
 		t.Fatalf("downloadDatabase returned error: %v", err)
 	}
-	if err := validateSQLite(targetPath); err != nil {
+	if err := ValidateSQLite(targetPath); err != nil {
 		t.Fatalf("downloaded database did not validate: %v", err)
 	}
 
@@ -206,7 +207,7 @@ func TestDownloadDatabaseValidatesBeforeReplacing(t *testing.T) {
 	if err := downloadDatabase(context.Background(), client, targetPath); err == nil {
 		t.Fatal("expected invalid database download to fail")
 	}
-	if err := validateSQLite(targetPath); err != nil {
+	if err := ValidateSQLite(targetPath); err != nil {
 		t.Fatalf("invalid download replaced valid database: %v", err)
 	}
 }
@@ -359,5 +360,12 @@ func TestCanonicalQueryString(t *testing.T) {
 	want := "a=1&b=hi%20there&b=second&empty=&z=last"
 	if got != want {
 		t.Fatalf("canonical query mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestBackupKey(t *testing.T) {
+	now := time.Date(2026, 10, 18, 23, 0, 0, 0, time.UTC)
+	if got, want := backupKey("downloads/oaamonitor.db", now), "backups/2026-10-18-oaamonitor.db"; got != want {
+		t.Errorf("backupKey = %q, want %q", got, want)
 	}
 }

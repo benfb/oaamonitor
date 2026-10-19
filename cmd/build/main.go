@@ -79,6 +79,9 @@ func copyDir(src, dst string) error {
 		}
 
 		switch {
+		case hasMinifiedSibling(srcPath):
+			// Ship only the minified build of an asset when one exists.
+			continue
 		case info.IsDir():
 			if err := copyDir(srcPath, dstPath); err != nil {
 				return err
@@ -90,6 +93,15 @@ func copyDir(src, dst string) error {
 		}
 	}
 	return nil
+}
+
+func hasMinifiedSibling(path string) bool {
+	ext := filepath.Ext(path)
+	if ext != ".js" && ext != ".css" || strings.HasSuffix(path, ".min"+ext) {
+		return false
+	}
+	_, err := os.Stat(strings.TrimSuffix(path, ext) + ".min" + ext)
+	return err == nil
 }
 
 func validateOutputDir(path string) error {
@@ -146,7 +158,6 @@ func main() {
 	}
 
 	cfg := config.NewConfig()
-	cfg.DownloadDatabase = false
 	cfg.UploadDatabase = false
 	if cfgFlags.database != "" {
 		cfg.DatabasePath = cfgFlags.database
@@ -166,11 +177,7 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	if err := database.Checkpoint(db.DB); err != nil {
-		log.Printf("warning: unable to checkpoint WAL file: %v", err)
-	}
-
-	siteBuilder, err := site.NewBuilder(db, cfg)
+	siteBuilder, err := site.NewBuilder(db)
 	if err != nil {
 		log.Fatalf("failed to create site builder: %v", err)
 	}

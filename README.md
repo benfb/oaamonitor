@@ -20,7 +20,7 @@ Once the SQLite database is up to date, render the static bundle (HTML, JSON, as
 go run ./cmd/build -database data/oaamonitor.db -out public
 ```
 
-The builder renders every player and team page into the `public/` directory, copies static assets, emits a `search-index.json`, and packages the SQLite database at `public/downloads/oaamonitor.db`.
+The builder renders every player and team page into the `public/` directory, copies static assets (minified builds only), and emits a `search-index.json`.
 
 ## Continuous deployment
 
@@ -40,5 +40,7 @@ Cache purging also requires:
 - `BUNNY_PULL_ZONE_ID` as a repository variable, using the numeric ID of the pull zone connected to the storage zone
 
 Site deployment syncs `public/` to the zone and removes remote files that are
-no longer in the generated site. A successful sync is followed by a full
+no longer in the generated site. The sync excludes `downloads/` and `backups/`,
+which hold the live database and its dated backups in the same zone; without
+those excludes `--delete` removes the database. A successful sync is followed by a full
 pull-zone cache purge so changed pages are served immediately.

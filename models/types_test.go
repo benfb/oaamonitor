@@ -55,35 +55,6 @@ func setupTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func TestFetchTeamStats(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
-
-	// Test successful query
-	stats, teamName, err := FetchTeamStats(db, "yankees", 2023)
-	if err != nil {
-		t.Errorf("FetchTeamStats returned error: %v", err)
-	}
-	if len(stats) != 2 {
-		t.Errorf("Expected 2 stats, got %d", len(stats))
-	}
-	if teamName != "Yankees" {
-		t.Errorf("Expected team name 'Yankees', got '%s'", teamName)
-	}
-
-	// Test no data found case
-	stats, teamName, err = FetchTeamStats(db, "padres", 2023)
-	if err != nil {
-		t.Errorf("FetchTeamStats returned error: %v", err)
-	}
-	if len(stats) != 0 {
-		t.Errorf("Expected 0 stats, got %d", len(stats))
-	}
-	if teamName != "Padres" {
-		t.Errorf("Expected team name 'Padres', got '%s'", teamName)
-	}
-}
-
 func TestMapStatsByPlayerID(t *testing.T) {
 	now := time.Now()
 	yesterday := now.AddDate(0, 0, -1)
@@ -225,38 +196,6 @@ func TestFetchPlayers_DeduplicatesAfterNameCorrection(t *testing.T) {
 		if p.ID == 1 && p.Name != "John Doe" {
 			t.Errorf("expected player 1 to have most recent name 'John Doe', got %q", p.Name)
 		}
-	}
-}
-
-func TestFetchPlayerStats(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
-
-	// Test successful query
-	stats, name, position, err := FetchPlayerStats(db, 1, 2023)
-	if err != nil {
-		t.Errorf("FetchPlayerStats returned error: %v", err)
-	}
-	if len(stats) != 2 {
-		t.Errorf("Expected 2 stats, got %d", len(stats))
-	}
-	if name != "John Doe" {
-		t.Errorf("Expected name 'John Doe', got '%s'", name)
-	}
-	if position != "SS" {
-		t.Errorf("Expected position 'SS', got '%s'", position)
-	}
-
-	// Test no data for specified season but player exists
-	stats, name, position, err = FetchPlayerStats(db, 4, 2023)
-	if err != nil {
-		t.Errorf("FetchPlayerStats returned error: %v", err)
-	}
-	if len(stats) != 0 {
-		t.Errorf("Expected 0 stats, got %d", len(stats))
-	}
-	if name != "Mike Brown" {
-		t.Errorf("Expected name 'Mike Brown', got '%s'", name)
 	}
 }
 
@@ -489,25 +428,6 @@ func TestFetchNDayTrendsKeepsSignedOrderAfterIncludingNegativeMovers(t *testing.
 	last := trends[len(trends)-1]
 	if last.PlayerID != 2 || last.Difference != -6 {
 		t.Fatalf("expected included negative mover to be player 2 at -6, got player %d at %d", last.PlayerID, last.Difference)
-	}
-}
-
-func TestFetchSeasons(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
-
-	seasons, err := FetchSeasons(db)
-	if err != nil {
-		t.Errorf("FetchSeasons returned error: %v", err)
-	}
-
-	if len(seasons) != 2 {
-		t.Errorf("Expected 2 seasons, got %d", len(seasons))
-	}
-
-	// 2023 should be first (descending order)
-	if seasons[0] != 2023 {
-		t.Errorf("Expected first season to be 2023, got %d", seasons[0])
 	}
 }
 

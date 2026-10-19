@@ -56,11 +56,15 @@ jobs:
           AWS_ACCESS_KEY_ID: oaamonitor-benbailey-me-site
           AWS_SECRET_ACCESS_KEY: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
           AWS_REGION: NY
+        # The database and its backups live in the same zone as the site. Excluded
+        # paths are never deleted by --delete, so they must stay listed here.
         run: >-
           aws s3 sync public/
           s3://oaamonitor-benbailey-me-site/
           --endpoint-url https://ny-s3.storage.bunnycdn.com
           --delete
+          --exclude "downloads/*"
+          --exclude "backups/*"
           --no-progress
       - name: Purge Bunny CDN cache
         env:

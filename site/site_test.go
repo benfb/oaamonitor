@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/models"
 )
@@ -34,7 +33,7 @@ func TestBuilderRendersAllPageTypes(t *testing.T) {
 		t.Fatalf("insert fixture data: %v", err)
 	}
 
-	builder, err := NewBuilder(db, &config.Config{DatabasePath: dbPath})
+	builder, err := NewBuilder(db)
 	if err != nil {
 		t.Fatalf("create builder: %v", err)
 	}

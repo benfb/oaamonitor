@@ -8,7 +8,9 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"time"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
@@ -99,14 +101,15 @@ func downloadDatabase(ctx context.Context, client *S3Client, dbPath string) erro
 		log.Printf("Failed to close database file: %v", err)
 		return err
 	}
-	if err := validateSQLite(tmpPath); err != nil {
+	if err := ValidateSQLite(tmpPath); err != nil {
 		return fmt.Errorf("downloaded database is invalid: %w", err)
 	}
 
 	return os.Rename(tmpPath, dbPath)
 }
 
-func validateSQLite(path string) error {
+// ValidateSQLite runs an integrity check against the database at path.
+func ValidateSQLite(path string) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("resolve database path: %w", err)
@@ -151,6 +154,16 @@ func UploadDatabase(ctx context.Context, dbPath string) error {
 	}
 
 	bucket, key := databaseObjectLocation()
+
+	// Keep a dated copy first so a bad refresh can't destroy the only copy of the history.
+	if err := client.PutObject(ctx, bucket, backupKey(key, time.Now()), file, fileInfo.Size()); err != nil {
+		log.Printf("Failed to upload database backup: %v", err)
+		return err
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+
 	err = client.PutObject(ctx, bucket, key, file, fileInfo.Size())
 	if err != nil {
 		log.Printf("Failed to upload database file: %v", err)
@@ -158,4 +171,9 @@ func UploadDatabase(ctx context.Context, dbPath string) error {
 	}
 
 	return nil
+}
+
+// backupKey returns the object key for the daily backup of the database stored at key.
+func backupKey(key string, now time.Time) string {
+	return path.Join("backups", now.UTC().Format("2006-01-02")+"-"+path.Base(key))
 }

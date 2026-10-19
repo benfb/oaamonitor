@@ -19,7 +19,6 @@ func main() {
 	flag.Parse()
 
 	cfg := config.NewConfig()
-	cfg.DownloadDatabase = false
 
 	if *databasePath != "" {
 		cfg.DatabasePath = *databasePath

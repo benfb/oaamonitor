@@ -1,6 +1,7 @@
 package refresher
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"database/sql"
@@ -18,6 +19,26 @@ import (
 	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/storage"
 )
+
+// maxSkippedRowFraction is the share of CSV rows that may be malformed before the
+// whole refresh is rejected.
+const maxSkippedRowFraction = 0.05
+
+// snapshotLocation is the timezone used to label daily snapshots, so a late-evening
+// run is recorded under the baseball day it belongs to rather than the UTC date.
+var snapshotLocation = loadSnapshotLocation()
+
+func loadSnapshotLocation() *time.Location {
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}
+
+func snapshotDate() string {
+	return time.Now().In(snapshotLocation).Format("2006-01-02")
+}
 
 func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 	currentYear := time.Now().Year()
@@ -39,6 +60,9 @@ func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 	if cfg.UploadDatabase {
 		if err := database.CheckpointWAL(cfg.DatabasePath); err != nil {
 			return fmt.Errorf("failed to checkpoint WAL before upload: %v", err)
+		}
+		if err := storage.ValidateSQLite(cfg.DatabasePath); err != nil {
+			return fmt.Errorf("refusing to upload invalid database: %w", err)
 		}
 		if err := storage.UploadDatabase(ctx, cfg.DatabasePath); err != nil {
 			return fmt.Errorf("failed to upload database: %v", err)
@@ -132,6 +156,8 @@ func processCSV(ctx context.Context, filepath, dbPath string) error {
 	}
 	defer stmt.Close()
 
+	date := snapshotDate()
+	var total, skipped int
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -141,9 +167,14 @@ func processCSV(ctx context.Context, filepath, dbPath string) error {
 			return fmt.Errorf("error reading CSV record: %v", err)
 		}
 
-		if err := processRecord(stmt, record, columns); err != nil {
-			return fmt.Errorf("error processing record %v: %w", columns.value(record, csvColumnName), err)
+		total++
+		if err := processRecord(stmt, record, columns, date); err != nil {
+			skipped++
+			log.Printf("skipping record %q: %v", columns.value(record, csvColumnName), err)
 		}
+	}
+	if float64(skipped) > float64(total)*maxSkippedRowFraction {
+		return fmt.Errorf("too many malformed records: skipped %d of %d", skipped, total)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -158,7 +189,7 @@ func prepareInsertStatement(db interface {
 }) (*sql.Stmt, error) {
 	insertSQL := `
 	INSERT INTO outs_above_average (player_id, first_name, last_name, full_name, team, primary_position, oaa, actual_success_rate, estimated_success_rate, diff_success_rate, date)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(player_id, date) DO UPDATE SET
 		first_name = excluded.first_name,
 		last_name = excluded.last_name,
@@ -295,7 +326,7 @@ func (columns csvColumns) value(record []string, column csvColumn) string {
 	return record[index]
 }
 
-func processRecord(stmt *sql.Stmt, record []string, columns csvColumns) error {
+func processRecord(stmt *sql.Stmt, record []string, columns csvColumns, date string) error {
 	name := columns.value(record, csvColumnName)
 	if name == "" {
 		return fmt.Errorf("missing %s", csvColumnName)
@@ -343,7 +374,7 @@ func processRecord(stmt *sql.Stmt, record []string, columns csvColumns) error {
 		return fmt.Errorf("invalid diff success rate: %v", diffSuccessRateValue)
 	}
 
-	_, err = stmt.Exec(playerID, firstName, lastName, fullName, team, primaryPosition, oaa, actualSuccessRate, estimatedSuccessRate, diffSuccessRate)
+	_, err = stmt.Exec(playerID, firstName, lastName, fullName, team, primaryPosition, oaa, actualSuccessRate, estimatedSuccessRate, diffSuccessRate, date)
 	return err
 }
 
@@ -357,15 +388,9 @@ func parsePercentage(percentageStr string) (float64, error) {
 }
 
 func removeBOM(r io.Reader) io.Reader {
-	b := make([]byte, 3)
-	n, err := r.Read(b)
-	if err != nil {
-		return r
+	br := bufio.NewReader(r)
+	if prefix, err := br.Peek(3); err == nil && bytes.Equal(prefix, []byte{0xEF, 0xBB, 0xBF}) {
+		br.Discard(3)
 	}
-
-	if n == 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
-		return r
-	}
-
-	return io.MultiReader(bytes.NewReader(b[:n]), r)
+	return br
 }
