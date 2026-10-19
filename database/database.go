@@ -70,20 +70,34 @@ func EnsureSchema(db *sql.DB) error {
 		return err
 	}
 
-	indexes := []string{
-		`CREATE INDEX IF NOT EXISTS idx_date ON outs_above_average(date)`,
-		`CREATE INDEX IF NOT EXISTS idx_team_lower ON outs_above_average(LOWER(team))`,
-		`CREATE INDEX IF NOT EXISTS idx_name ON outs_above_average(last_name, first_name)`,
-		`CREATE INDEX IF NOT EXISTS idx_team_date ON outs_above_average(LOWER(team), date)`,
-	}
-
-	for _, indexSQL := range indexes {
-		if _, err := db.Exec(indexSQL); err != nil {
-			return fmt.Errorf("failed to create index: %v", err)
+	// The build reads whole tables and UNIQUE(player_id, date) covers the point lookups,
+	// so secondary indexes only cost file size. Drop any left by older versions.
+	for _, name := range []string{"idx_date", "idx_team_lower", "idx_name", "idx_team_date"} {
+		if _, err := db.Exec(`DROP INDEX IF EXISTS ` + name); err != nil {
+			return fmt.Errorf("failed to drop index %s: %v", name, err)
 		}
 	}
 
 	return nil
+}
+
+// CompactIfFragmented runs VACUUM when free pages make up more than a tenth of the file,
+// such as after dropping indexes, so the database stays small to upload and download.
+func CompactIfFragmented(db *sql.DB) (bool, error) {
+	var free, total int
+	if err := db.QueryRow("PRAGMA freelist_count").Scan(&free); err != nil {
+		return false, err
+	}
+	if err := db.QueryRow("PRAGMA page_count").Scan(&total); err != nil {
+		return false, err
+	}
+	if total == 0 || free*10 <= total {
+		return false, nil
+	}
+	if _, err := db.Exec("VACUUM"); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // CheckpointWAL checkpoints pending WAL pages into the main database file.

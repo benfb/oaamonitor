@@ -65,3 +65,41 @@ func TestValidate(t *testing.T) {
 		t.Fatal("Validate accepted a non-SQLite file")
 	}
 }
+
+func TestEnsureSchemaDropsLegacyIndexesAndCompacts(t *testing.T) {
+	db, err := New(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	defer db.Close()
+	if err := EnsureSchema(db.DB); err != nil {
+		t.Fatalf("EnsureSchema returned error: %v", err)
+	}
+
+	if _, err := db.Exec(`CREATE INDEX idx_date ON outs_above_average(date)`); err != nil {
+		t.Fatalf("create legacy index: %v", err)
+	}
+	for i := 0; i < 5000; i++ {
+		if _, err := db.Exec(`INSERT INTO outs_above_average (player_id, full_name, team, date) VALUES (?, 'Some Longer Player Name', 'Some Team', '2026-01-01')`, i); err != nil {
+			t.Fatalf("insert: %v", err)
+		}
+	}
+	if err := EnsureSchema(db.DB); err != nil {
+		t.Fatalf("EnsureSchema returned error: %v", err)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_date'`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("legacy index still present: n=%d err=%v", n, err)
+	}
+
+	if _, err := db.Exec(`DELETE FROM outs_above_average`); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	compacted, err := CompactIfFragmented(db.DB)
+	if err != nil || !compacted {
+		t.Fatalf("CompactIfFragmented = %v, %v; want true, nil", compacted, err)
+	}
+	if compacted, _ := CompactIfFragmented(db.DB); compacted {
+		t.Fatal("second CompactIfFragmented should find nothing to do")
+	}
+}

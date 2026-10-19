@@ -56,6 +56,10 @@ func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 
 	log.Println("CSV data successfully inserted or updated in the database.")
 
+	if err := compact(cfg.DatabasePath); err != nil {
+		return fmt.Errorf("failed to compact database: %v", err)
+	}
+
 	// Leave a self-contained, verified file behind so it can be uploaded as-is.
 	if err := database.CheckpointWAL(cfg.DatabasePath); err != nil {
 		return fmt.Errorf("failed to checkpoint WAL: %v", err)
@@ -65,6 +69,20 @@ func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+func compact(dbPath string) error {
+	db, err := database.Open(dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	compacted, err := database.CompactIfFragmented(db)
+	if compacted {
+		log.Println("Database compacted.")
+	}
+	return err
 }
 
 func downloadFile(ctx context.Context, url string, timeout time.Duration) (*os.File, error) {
