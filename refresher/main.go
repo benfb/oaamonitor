@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/database"
 )
 
@@ -39,32 +38,33 @@ func snapshotDate() string {
 	return time.Now().In(snapshotLocation).Format("2006-01-02")
 }
 
-func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
+// GetLatestOAA downloads the current season's OAA leaderboard into the SQLite database at dbPath,
+// then compacts, checkpoints, and verifies the file so it can be uploaded as-is.
+func GetLatestOAA(ctx context.Context, dbPath string, timeout time.Duration) error {
 	currentYear := time.Now().Year()
 	url := fmt.Sprintf("https://baseballsavant.mlb.com/leaderboard/outs_above_average?type=Fielder&startYear=%d&endYear=%d&split=yes&team=&range=year&min=10&pos=&roles=&viz=hide&csv=true", currentYear, currentYear)
 
-	timeout := time.Duration(cfg.RequestTimeout) * time.Second
 	tmpFile, err := downloadFile(ctx, url, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to download CSV file: %v", err)
 	}
 	defer os.Remove(tmpFile.Name())
 
-	if err := processCSV(ctx, tmpFile.Name(), cfg.DatabasePath); err != nil {
+	if err := processCSV(ctx, tmpFile.Name(), dbPath); err != nil {
 		return fmt.Errorf("failed to process CSV file: %v", err)
 	}
 
 	log.Println("CSV data successfully inserted or updated in the database.")
 
-	if err := compact(cfg.DatabasePath); err != nil {
+	if err := compact(dbPath); err != nil {
 		return fmt.Errorf("failed to compact database: %v", err)
 	}
 
 	// Leave a self-contained, verified file behind so it can be uploaded as-is.
-	if err := database.CheckpointWAL(cfg.DatabasePath); err != nil {
+	if err := database.CheckpointWAL(dbPath); err != nil {
 		return fmt.Errorf("failed to checkpoint WAL: %v", err)
 	}
-	if err := database.Validate(cfg.DatabasePath); err != nil {
+	if err := database.Validate(dbPath); err != nil {
 		return fmt.Errorf("database failed validation after refresh: %w", err)
 	}
 
@@ -216,118 +216,51 @@ func prepareInsertStatement(db interface {
 	return db.Prepare(insertSQL)
 }
 
+// csvColumn is the exact header Baseball Savant uses for a column in the OAA leaderboard CSV.
 type csvColumn string
 
 const (
-	csvColumnName                 csvColumn = "name"
-	csvColumnPlayerID             csvColumn = "player ID"
-	csvColumnTeam                 csvColumn = "team"
-	csvColumnPrimaryPosition      csvColumn = "primary position"
-	csvColumnOAA                  csvColumn = "OAA"
-	csvColumnActualSuccessRate    csvColumn = "actual success rate"
-	csvColumnEstimatedSuccessRate csvColumn = "estimated success rate"
-	csvColumnDiffSuccessRate      csvColumn = "diff success rate"
+	csvColumnName                 csvColumn = "last_name, first_name"
+	csvColumnPlayerID             csvColumn = "player_id"
+	csvColumnTeam                 csvColumn = "display_team_name"
+	csvColumnPrimaryPosition      csvColumn = "primary_pos_formatted"
+	csvColumnOAA                  csvColumn = "outs_above_average"
+	csvColumnActualSuccessRate    csvColumn = "actual_success_rate_formatted"
+	csvColumnEstimatedSuccessRate csvColumn = "adj_estimated_success_rate_formatted"
+	csvColumnDiffSuccessRate      csvColumn = "diff_success_rate_formatted"
 )
 
-type csvColumns map[csvColumn]int
-
-var requiredCSVColumns = map[csvColumn][]string{
-	csvColumnName: {
-		"name",
-		"player",
-		"playername",
-		"last_name, first_name",
-		"fielder",
-		"fieldername",
-		"fielder_name",
-		"entityname",
-	},
-	csvColumnPlayerID: {
-		"playerid",
-		"player_id",
-		"mlbid",
-		"mlb_id",
-	},
-	csvColumnTeam: {
-		"team",
-		"teamname",
-		"team_name",
-		"display_team_name",
-	},
-	csvColumnPrimaryPosition: {
-		"primaryposition",
-		"primary_position",
-		"primarypos",
-		"primary_pos",
-		"primaryposformatted",
-		"primary_pos_formatted",
-		"position",
-		"pos",
-	},
-	csvColumnOAA: {
-		"oaa",
-		"outsaboveaverage",
-		"outs_above_average",
-	},
-	csvColumnActualSuccessRate: {
-		"actualsuccessrate",
-		"actual_success_rate",
-		"actualsuccessrateformatted",
-		"actual_success_rate_formatted",
-	},
-	csvColumnEstimatedSuccessRate: {
-		"estimatedsuccessrate",
-		"estimated_success_rate",
-		"estimatedsuccessrateformatted",
-		"estimated_success_rate_formatted",
-		"adj_estimated_success_rate_formatted",
-	},
-	csvColumnDiffSuccessRate: {
-		"diffsuccessrate",
-		"diff_success_rate",
-		"diffsuccessrateformatted",
-		"diff_success_rate_formatted",
-		"differenceinsuccessrate",
-		"difference_in_success_rate",
-	},
+var requiredCSVColumns = []csvColumn{
+	csvColumnName,
+	csvColumnPlayerID,
+	csvColumnTeam,
+	csvColumnPrimaryPosition,
+	csvColumnOAA,
+	csvColumnActualSuccessRate,
+	csvColumnEstimatedSuccessRate,
+	csvColumnDiffSuccessRate,
 }
 
+// csvColumns maps each required column to its index in the CSV header.
+type csvColumns map[csvColumn]int
+
+// resolveCSVColumns locates every required column by exact name, so a renamed or dropped
+// column fails the refresh instead of silently importing the wrong data.
 func resolveCSVColumns(header []string) (csvColumns, error) {
 	indexes := make(map[string]int, len(header))
 	for i, name := range header {
-		indexes[normalizeCSVHeader(name)] = i
+		indexes[strings.TrimSpace(name)] = i
 	}
 
 	columns := make(csvColumns, len(requiredCSVColumns))
-	for column, aliases := range requiredCSVColumns {
-		index, ok := findCSVColumn(indexes, aliases)
+	for _, column := range requiredCSVColumns {
+		index, ok := indexes[string(column)]
 		if !ok {
 			return nil, fmt.Errorf("CSV header missing required column %q; got %v", column, header)
 		}
 		columns[column] = index
 	}
-
 	return columns, nil
-}
-
-func findCSVColumn(indexes map[string]int, aliases []string) (int, bool) {
-	for _, alias := range aliases {
-		if index, ok := indexes[normalizeCSVHeader(alias)]; ok {
-			return index, true
-		}
-	}
-	return 0, false
-}
-
-func normalizeCSVHeader(header string) string {
-	header = strings.ToLower(strings.TrimSpace(header))
-	var b strings.Builder
-	for _, r := range header {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
 }
 
 func (columns csvColumns) value(record []string, column csvColumn) string {

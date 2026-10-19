@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/benfb/oaamonitor"
-	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/models"
 	"github.com/benfb/oaamonitor/site"
@@ -26,7 +25,11 @@ type buildConfig struct {
 
 func parseFlags() buildConfig {
 	output := flag.String("out", "public", "output directory for generated site")
-	database := flag.String("database", "", "path to the SQLite database (defaults to DATABASE_PATH env or ./data/oaamonitor.db)")
+	defaultDatabase := "./data/oaamonitor.db"
+	if path := os.Getenv("DATABASE_PATH"); path != "" {
+		defaultDatabase = path
+	}
+	database := flag.String("database", defaultDatabase, "path to the SQLite database (defaults to DATABASE_PATH env or ./data/oaamonitor.db)")
 	flag.Parse()
 
 	return buildConfig{
@@ -126,21 +129,16 @@ func main() {
 		log.Fatalf("failed to create output directory: %v", err)
 	}
 
-	cfg := config.NewConfig()
-	if cfgFlags.database != "" {
-		cfg.DatabasePath = cfgFlags.database
-	}
-
-	if info, err := os.Stat(cfg.DatabasePath); err != nil {
+	if info, err := os.Stat(cfgFlags.database); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			log.Fatalf("database %s not found; run `go run ./cmd/fetch -database %s` first", cfg.DatabasePath, cfg.DatabasePath)
+			log.Fatalf("database %s not found; run `go run ./cmd/fetch -database %s` first", cfgFlags.database, cfgFlags.database)
 		}
 		log.Fatalf("failed to stat database: %v", err)
 	} else if info.IsDir() {
-		log.Fatalf("database path %s is a directory, expected SQLite file", cfg.DatabasePath)
+		log.Fatalf("database path %s is a directory, expected SQLite file", cfgFlags.database)
 	}
 
-	db, err := database.Open(cfg.DatabasePath)
+	db, err := database.Open(cfgFlags.database)
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}
