@@ -299,14 +299,14 @@ func TestFetchPlayerDifferences_FallbackWithDateGap(t *testing.T) {
 		t.Fatalf("failed to create table: %v", err)
 	}
 
-	// Three snapshots with a 2-day gap between each (not consecutive calendar days).
-	// today == 4-days-ago OAA (so the primary query finds count==0, triggering fallback).
-	// 4-days-ago != 6-days-ago OAA (so there are changes in the fallback period).
+	// Three consecutive daily snapshots.
+	// today == yesterday OAA (so the primary pair has no changes, triggering fallback).
+	// yesterday != 2-days-ago OAA (so there are changes in the fallback period).
 	_, err = db.Exec(`
 		INSERT INTO outs_above_average (player_id, full_name, first_name, last_name, team, primary_position, oaa, date, actual_success_rate, estimated_success_rate, diff_success_rate) VALUES
 		(1, 'John Doe', 'John', 'Doe', 'Yankees', 'SS', 5, date('now'),           0.8, 0.7, 0.1),
-		(1, 'John Doe', 'John', 'Doe', 'Yankees', 'SS', 5, date('now', '-2 days'), 0.8, 0.7, 0.1),
-		(1, 'John Doe', 'John', 'Doe', 'Yankees', 'SS', 2, date('now', '-4 days'), 0.7, 0.6, 0.1)
+		(1, 'John Doe', 'John', 'Doe', 'Yankees', 'SS', 5, date('now', '-1 days'), 0.8, 0.7, 0.1),
+		(1, 'John Doe', 'John', 'Doe', 'Yankees', 'SS', 2, date('now', '-2 days'), 0.7, 0.6, 0.1)
 	`)
 	if err != nil {
 		t.Fatalf("failed to insert test data: %v", err)
@@ -329,6 +329,7 @@ func TestFetchPlayerDifferencesKeepsSignedOrderAfterIncludingNegativeMovers(t *t
 	defer db.Close()
 
 	if _, err := db.Exec(`
+		UPDATE outs_above_average SET date = '2023-08-14' WHERE date = '2023-08-01';
 		UPDATE outs_above_average SET oaa = 0 WHERE player_id = 2 AND date = '2023-08-15'
 	`); err != nil {
 		t.Fatalf("failed to update test data: %v", err)
@@ -465,5 +466,19 @@ func TestFetchLatestSnapshotDateEmptyTable(t *testing.T) {
 	}
 	if latest != "" {
 		t.Fatalf("expected empty latest snapshot date, got %q", latest)
+	}
+}
+
+func TestFetchPlayerDifferencesIgnoresGapInSnapshots(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// The fixture's latest snapshots are two weeks apart, so there is no previous day to compare.
+	diffs, err := FetchPlayerDifferences(db, 10)
+	if err != nil {
+		t.Fatalf("FetchPlayerDifferences returned error: %v", err)
+	}
+	if len(diffs) != 0 {
+		t.Fatalf("expected no daily differences across a gap, got %d", len(diffs))
 	}
 }

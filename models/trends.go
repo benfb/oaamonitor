@@ -3,25 +3,47 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 // FetchPlayerDifferences retrieves the players with the biggest differences between the latest and
-// previous OAA snapshots. If nothing changed between those two snapshots, it falls back to the
-// previous pair so the page is never empty after a no-op refresh.
+// previous day's OAA snapshots. If nothing changed between those two snapshots, it falls back to the
+// previous pair so the page is never empty after a no-op refresh. A pair is only compared when its
+// snapshots are on consecutive days, so a gap in the data never shows up as a "daily" change.
 func FetchPlayerDifferences(db *sql.DB, limit int) ([]PlayerDifference, error) {
 	dates, err := latestSnapshotDates(db, 3)
 	if err != nil {
 		return nil, err
 	}
-	if len(dates) < 2 {
+	if len(dates) < 2 || !consecutiveDays(dates[1], dates[0]) {
 		return nil, nil
 	}
 
 	differences, err := fetchDifferencesBetween(db, dates[0], dates[1], limit)
-	if err != nil || len(differences) > 0 || len(dates) < 3 {
+	if err != nil || len(differences) > 0 || len(dates) < 3 || !consecutiveDays(dates[2], dates[1]) {
 		return differences, err
 	}
 	return fetchDifferencesBetween(db, dates[1], dates[2], limit)
+}
+
+// consecutiveDays reports whether later is exactly one calendar day after earlier.
+func consecutiveDays(earlier, later string) bool {
+	e, err := parseSnapshotDate(earlier)
+	if err != nil {
+		return false
+	}
+	l, err := parseSnapshotDate(later)
+	if err != nil {
+		return false
+	}
+	return e.AddDate(0, 0, 1).Equal(l)
+}
+
+func parseSnapshotDate(date string) (time.Time, error) {
+	if len(date) > len("2006-01-02") {
+		date = date[:len("2006-01-02")]
+	}
+	return time.Parse("2006-01-02", date)
 }
 
 func latestSnapshotDates(db *sql.DB, n int) ([]string, error) {

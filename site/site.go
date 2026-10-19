@@ -20,6 +20,13 @@ type Team struct {
 	normalized string
 }
 
+// Tab is one table of player movement on the home page.
+type Tab struct {
+	ID    string
+	Label string
+	Rows  []models.PlayerDifference
+}
+
 // Builder prepares view data and renders templates for the static site.
 type Builder struct {
 	db          *database.DB
@@ -241,21 +248,29 @@ func (b *Builder) RenderIndex(players []models.Player) (string, error) {
 		return "", err
 	}
 
+	// Windows without enough history are left out rather than shown empty.
+	var tabs []Tab
+	for _, tab := range []Tab{
+		{ID: "daily", Label: "Daily", Rows: playerDifferences},
+		{ID: "weekly", Label: "Weekly", Rows: sevenDayTrends},
+		{ID: "monthly", Label: "Monthly", Rows: thirtyDayTrends},
+	} {
+		if len(tab.Rows) > 0 {
+			tabs = append(tabs, tab)
+		}
+	}
+
 	data := struct {
 		Title              string
 		Players            []models.Player
 		Teams              []Team
-		PlayerDifferences  []models.PlayerDifference
-		SevenDayTrends     []models.PlayerDifference
-		ThirtyDayTrends    []models.PlayerDifference
+		Tabs               []Tab
 		LatestSnapshotDate string
 	}{
 		Title:              "Outs Above Average Monitor",
 		Players:            players,
 		Teams:              teams,
-		PlayerDifferences:  playerDifferences,
-		SevenDayTrends:     sevenDayTrends,
-		ThirtyDayTrends:    thirtyDayTrends,
+		Tabs:               tabs,
 		LatestSnapshotDate: latestSnapshotDate,
 	}
 
