@@ -4,13 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/benfb/oaamonitor"
 	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/models"
 )
 
 func TestBuilderRendersAllPageTypes(t *testing.T) {
-	t.Chdir("..")
-
 	dbPath := t.TempDir() + "/oaamonitor.db"
 	db, err := database.New(dbPath)
 	if err != nil {
@@ -33,7 +32,7 @@ func TestBuilderRendersAllPageTypes(t *testing.T) {
 		t.Fatalf("insert fixture data: %v", err)
 	}
 
-	builder, err := NewBuilder(db)
+	builder, err := NewBuilder(db, oaamonitor.Templates())
 	if err != nil {
 		t.Fatalf("create builder: %v", err)
 	}

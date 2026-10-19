@@ -5,12 +5,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
+	"io/fs"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
+	"github.com/benfb/oaamonitor"
 	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/models"
@@ -40,67 +42,34 @@ func writeFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
 }
 
-func copyFile(src, dst string) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-	return out.Sync()
-}
-
-func copyDir(src, dst string) error {
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		info, err := entry.Info()
+// copyAssets writes the files in src under dst, shipping only the minified build of
+// any .js or .css asset that has one.
+func copyAssets(src fs.FS, dst string) error {
+	return fs.WalkDir(src, ".", func(name string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-
-		switch {
-		case hasMinifiedSibling(srcPath):
-			// Ship only the minified build of an asset when one exists.
-			continue
-		case info.IsDir():
-			if err := copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		default:
-			if err := copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
+		if entry.IsDir() || hasMinifiedSibling(src, name) {
+			return nil
 		}
-	}
-	return nil
+		data, err := fs.ReadFile(src, name)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, 0o644)
+	})
 }
 
-func hasMinifiedSibling(path string) bool {
-	ext := filepath.Ext(path)
-	if ext != ".js" && ext != ".css" || strings.HasSuffix(path, ".min"+ext) {
+func hasMinifiedSibling(fsys fs.FS, name string) bool {
+	ext := path.Ext(name)
+	if ext != ".js" && ext != ".css" || strings.HasSuffix(name, ".min"+ext) {
 		return false
 	}
-	_, err := os.Stat(strings.TrimSuffix(path, ext) + ".min" + ext)
+	_, err := fs.Stat(fsys, strings.TrimSuffix(name, ext)+".min"+ext)
 	return err == nil
 }
 
@@ -158,7 +127,6 @@ func main() {
 	}
 
 	cfg := config.NewConfig()
-	cfg.UploadDatabase = false
 	if cfgFlags.database != "" {
 		cfg.DatabasePath = cfgFlags.database
 	}
@@ -177,7 +145,7 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	siteBuilder, err := site.NewBuilder(db)
+	siteBuilder, err := site.NewBuilder(db, oaamonitor.Templates())
 	if err != nil {
 		log.Fatalf("failed to create site builder: %v", err)
 	}
@@ -223,7 +191,7 @@ func main() {
 		}
 	}
 
-	if err := copyDir("static", filepath.Join(cfgFlags.outputDir, "static")); err != nil {
+	if err := copyAssets(oaamonitor.Static(), filepath.Join(cfgFlags.outputDir, "static")); err != nil {
 		log.Fatalf("failed to copy static assets: %v", err)
 	}
 

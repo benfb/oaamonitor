@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -99,6 +100,29 @@ func CheckpointWAL(dbPath string) error {
 func Checkpoint(db *sql.DB) error {
 	_, err := db.Exec("PRAGMA wal_checkpoint(FULL)")
 	return err
+}
+
+// Validate runs SQLite's quick_check against the database file at path without modifying it.
+func Validate(path string) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve database path: %w", err)
+	}
+	u := url.URL{Scheme: "file", Path: absPath, RawQuery: "mode=ro"}
+	db, err := sql.Open("sqlite3", u.String())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	var result string
+	if err := db.QueryRow("PRAGMA quick_check").Scan(&result); err != nil {
+		return err
+	}
+	if result != "ok" {
+		return fmt.Errorf("quick_check returned %q", result)
+	}
+	return nil
 }
 
 // Close closes the database connection

@@ -1,0 +1,83 @@
+name: Refresh and Deploy
+
+on:
+  push:
+    branches: ["main"]
+  schedule:
+    - cron: "0 8 * * *"
+    - cron: "0 14 * * *"
+    - cron: "0 20 * * *"
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Refresh and deploy share one database object, so runs must not overlap.
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+env:
+  AWS_ACCESS_KEY_ID: oaamonitor-benbailey-me-site
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+  AWS_REGION: NY
+  AWS_ENDPOINT_URL_S3: https://ny-s3.storage.bunnycdn.com
+  BUCKET: oaamonitor-benbailey-me-site
+  DB_KEY: downloads/oaamonitor.db
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Download database
+        run: aws s3 cp "s3://$BUCKET/$DB_KEY" data/oaamonitor.db
+
+      # Pushes only redeploy the site; scheduled and manual runs also pull new data.
+      - name: Refresh database
+        if: github.event_name != 'push'
+        run: go run ./cmd/fetch -database data/oaamonitor.db
+
+      # fetch has already checkpointed and validated the file. Write the dated
+      # backup first so a failed upload can never leave the history unprotected.
+      - name: Upload database and backup
+        if: github.event_name != 'push'
+        run: |
+          aws s3 cp data/oaamonitor.db "s3://$BUCKET/backups/$(date -u +%F)-oaamonitor.db"
+          aws s3 cp data/oaamonitor.db "s3://$BUCKET/$DB_KEY"
+
+      - name: Build static site
+        run: go run ./cmd/build -database data/oaamonitor.db -out public
+
+      # The database and its backups live in the same zone as the site. Excluded
+      # paths are never deleted by --delete, so they must stay listed here.
+      - name: Deploy to Bunny Storage
+        run: >-
+          aws s3 sync public/ "s3://$BUCKET/"
+          --delete
+          --exclude "downloads/*"
+          --exclude "backups/*"
+          --no-progress
+
+      - name: Purge Bunny CDN cache
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          BUNNY_PULL_ZONE_ID: ${{ vars.BUNNY_PULL_ZONE_ID }}
+        run: |
+          : "${BUNNY_API_KEY:?Set the BUNNY_API_KEY repository secret}"
+          : "${BUNNY_PULL_ZONE_ID:?Set the BUNNY_PULL_ZONE_ID repository variable}"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "AccessKey: $BUNNY_API_KEY" \
+            --header "Content-Type: application/json" \
+            --data '{}' \
+            "https://api.bunny.net/pullzone/$BUNNY_PULL_ZONE_ID/purgeCache"

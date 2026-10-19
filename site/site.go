@@ -2,6 +2,7 @@ package site
 
 import (
 	"fmt"
+	"io/fs"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,9 +35,9 @@ type statIndex struct {
 	seasons     []int
 }
 
-// NewBuilder constructs a Builder backed by the provided database.
-func NewBuilder(db *database.DB) (*Builder, error) {
-	r, err := renderer.New()
+// NewBuilder constructs a Builder backed by the provided database and template files.
+func NewBuilder(db *database.DB, templates fs.FS) (*Builder, error) {
+	r, err := renderer.New(templates)
 	if err != nil {
 		return nil, err
 	}

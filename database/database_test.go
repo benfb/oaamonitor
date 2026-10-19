@@ -40,3 +40,28 @@ func TestNew_InvalidPath(t *testing.T) {
 		t.Error("Expected an error for invalid path, but got none")
 	}
 }
+
+func TestValidate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	db, err := New(path)
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	if err := EnsureSchema(db.DB); err != nil {
+		t.Fatalf("EnsureSchema returned error: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+	if err := Validate(path); err != nil {
+		t.Fatalf("Validate rejected a valid database: %v", err)
+	}
+
+	bad := filepath.Join(t.TempDir(), "bad.db")
+	if err := os.WriteFile(bad, []byte("not a SQLite database, just some text padding the file out"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(bad); err == nil {
+		t.Fatal("Validate accepted a non-SQLite file")
+	}
+}

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"log"
-	"path/filepath"
 	"strings"
 )
 
@@ -14,15 +14,8 @@ type Renderer struct {
 	templates *template.Template
 }
 
-// New creates a new Renderer instance
-func New() (*Renderer, error) {
-	templates, err := filepath.Glob("templates/*.html")
-	if err != nil {
-		return nil, fmt.Errorf("failed to find templates: %v", err)
-	}
-	if len(templates) == 0 {
-		return nil, fmt.Errorf("no templates found in templates/; run from the repo root")
-	}
+// New creates a Renderer from the *.html templates at the root of fsys.
+func New(fsys fs.FS) (*Renderer, error) {
 
 	funcMap := template.FuncMap{
 		"toJSON": func(v any) template.JS {
@@ -35,7 +28,7 @@ func New() (*Renderer, error) {
 		},
 	}
 
-	tmpl, err := template.New("").Funcs(funcMap).ParseFiles(templates...)
+	tmpl, err := template.New("").Funcs(funcMap).ParseFS(fsys, "*.html")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %v", err)
 	}

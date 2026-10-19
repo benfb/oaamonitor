@@ -1,15 +1,15 @@
 package renderer
 
 import (
-	"os"
+	"io/fs"
 	"strings"
 	"testing"
+
+	"github.com/benfb/oaamonitor"
 )
 
 func TestNewLoadsAndRendersTemplates(t *testing.T) {
-	t.Chdir("..")
-
-	r, err := New()
+	r, err := New(oaamonitor.Templates())
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
 	}
@@ -29,9 +29,7 @@ func TestNewLoadsAndRendersTemplates(t *testing.T) {
 }
 
 func TestExternalScriptsUseSubresourceIntegrity(t *testing.T) {
-	t.Chdir("..")
-
-	header, err := os.ReadFile("templates/header.html")
+	header, err := fs.ReadFile(oaamonitor.Templates(), "header.html")
 	if err != nil {
 		t.Fatalf("read header template: %v", err)
 	}

@@ -17,7 +17,6 @@ import (
 
 	"github.com/benfb/oaamonitor/config"
 	"github.com/benfb/oaamonitor/database"
-	"github.com/benfb/oaamonitor/storage"
 )
 
 // maxSkippedRowFraction is the share of CSV rows that may be malformed before the
@@ -57,17 +56,12 @@ func GetLatestOAA(ctx context.Context, cfg *config.Config) error {
 
 	log.Println("CSV data successfully inserted or updated in the database.")
 
-	if cfg.UploadDatabase {
-		if err := database.CheckpointWAL(cfg.DatabasePath); err != nil {
-			return fmt.Errorf("failed to checkpoint WAL before upload: %v", err)
-		}
-		if err := storage.ValidateSQLite(cfg.DatabasePath); err != nil {
-			return fmt.Errorf("refusing to upload invalid database: %w", err)
-		}
-		if err := storage.UploadDatabase(ctx, cfg.DatabasePath); err != nil {
-			return fmt.Errorf("failed to upload database: %v", err)
-		}
-		log.Println("Database successfully uploaded to object storage.")
+	// Leave a self-contained, verified file behind so it can be uploaded as-is.
+	if err := database.CheckpointWAL(cfg.DatabasePath); err != nil {
+		return fmt.Errorf("failed to checkpoint WAL: %v", err)
+	}
+	if err := database.Validate(cfg.DatabasePath); err != nil {
+		return fmt.Errorf("database failed validation after refresh: %w", err)
 	}
 
 	return nil
