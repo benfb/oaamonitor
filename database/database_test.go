@@ -6,48 +6,32 @@ import (
 	"testing"
 )
 
-func TestNew(t *testing.T) {
-	// Create a temporary directory to simulate the database directory
-	tempDir, err := os.MkdirTemp("", "testdbdir")
+func TestOpenCreatesDatabaseFile(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "testdb.sqlite")
+	db, err := Open(dbPath)
 	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Define the path for the temporary database file
-	dbPath := filepath.Join(tempDir, "testdb.sqlite")
-
-	// Create a new database instance
-	db, err := New(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to create new database: %v", err)
+		t.Fatalf("Open returned error: %v", err)
 	}
 	defer db.Close()
 
-	// Check if the database file was created
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		t.Errorf("Expected database file to be created, but it does not exist")
+	if _, err := os.Stat(dbPath); err != nil {
+		t.Errorf("expected database file to exist: %v", err)
 	}
 }
 
-func TestNew_InvalidPath(t *testing.T) {
-	// Define an invalid path for the database file
-	invalidPath := "/invalid_path/testdb.sqlite"
-
-	// Try to create a new database instance with the invalid path
-	_, err := New(invalidPath)
-	if err == nil {
-		t.Error("Expected an error for invalid path, but got none")
+func TestOpenInvalidPath(t *testing.T) {
+	if _, err := Open("/invalid_path/testdb.sqlite"); err == nil {
+		t.Error("expected an error for invalid path, got none")
 	}
 }
 
 func TestValidate(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
-	db, err := New(path)
+	db, err := Open(path)
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
 	}
-	if err := EnsureSchema(db.DB); err != nil {
+	if err := EnsureSchema(db); err != nil {
 		t.Fatalf("EnsureSchema returned error: %v", err)
 	}
 	if err := db.Close(); err != nil {
@@ -67,12 +51,12 @@ func TestValidate(t *testing.T) {
 }
 
 func TestCompactIfFragmented(t *testing.T) {
-	db, err := New(filepath.Join(t.TempDir(), "test.db"))
+	db, err := Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
 	}
 	defer db.Close()
-	if err := EnsureSchema(db.DB); err != nil {
+	if err := EnsureSchema(db); err != nil {
 		t.Fatalf("EnsureSchema returned error: %v", err)
 	}
 
@@ -85,11 +69,11 @@ func TestCompactIfFragmented(t *testing.T) {
 	if _, err := db.Exec(`DELETE FROM outs_above_average`); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	compacted, err := CompactIfFragmented(db.DB)
+	compacted, err := CompactIfFragmented(db)
 	if err != nil || !compacted {
 		t.Fatalf("CompactIfFragmented = %v, %v; want true, nil", compacted, err)
 	}
-	if compacted, _ := CompactIfFragmented(db.DB); compacted {
+	if compacted, _ := CompactIfFragmented(db); compacted {
 		t.Fatal("second CompactIfFragmented should find nothing to do")
 	}
 }

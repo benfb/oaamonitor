@@ -1,6 +1,7 @@
 package site
 
 import (
+	"database/sql"
 	"fmt"
 	"io/fs"
 	"sort"
@@ -8,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benfb/oaamonitor/database"
 	"github.com/benfb/oaamonitor/models"
 	"github.com/benfb/oaamonitor/renderer"
 )
@@ -27,9 +27,37 @@ type Tab struct {
 	Rows  []models.PlayerDifference
 }
 
+// chartStat is the slice of a snapshot the page scripts actually plot. Every season of history is
+// embedded in each page, so the payload stays small by leaving out fields the scripts never read.
+type chartStat struct {
+	PlayerID int       `json:"player_id,omitempty"`
+	Name     string    `json:"name,omitempty"`
+	Team     string    `json:"team,omitempty"`
+	Date     time.Time `json:"date"`
+	OAA      int       `json:"oaa"`
+}
+
+// playerChartStats keeps what the player chart needs: the team (for the title) and each point.
+func playerChartStats(stats []models.Stat) []chartStat {
+	result := make([]chartStat, len(stats))
+	for i, stat := range stats {
+		result[i] = chartStat{Team: stat.Team, Date: stat.Date, OAA: stat.OAA}
+	}
+	return result
+}
+
+// teamChartStats keeps what the team chart needs to group points into one line per player.
+func teamChartStats(stats []models.Stat) []chartStat {
+	result := make([]chartStat, len(stats))
+	for i, stat := range stats {
+		result[i] = chartStat{PlayerID: stat.PlayerID, Name: stat.Name, Date: stat.Date, OAA: stat.OAA}
+	}
+	return result
+}
+
 // Builder prepares view data and renders templates for the static site.
 type Builder struct {
-	db          *database.DB
+	db          *sql.DB
 	renderer    *renderer.Renderer
 	teams       []Team
 	teamsLoaded bool
@@ -43,7 +71,7 @@ type statIndex struct {
 }
 
 // NewBuilder constructs a Builder backed by the provided database and template files.
-func NewBuilder(db *database.DB, templates fs.FS) (*Builder, error) {
+func NewBuilder(db *sql.DB, templates fs.FS) (*Builder, error) {
 	r, err := renderer.New(templates)
 	if err != nil {
 		return nil, err
@@ -60,7 +88,7 @@ func (b *Builder) loadTeams() ([]Team, error) {
 		return b.teams, nil
 	}
 
-	names, err := models.FetchTeams(b.db.DB)
+	names, err := models.FetchTeams(b.db)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +119,7 @@ func (b *Builder) loadStats() (*statIndex, error) {
 		return b.stats, nil
 	}
 
-	stats, err := models.FetchStats(b.db.DB)
+	stats, err := models.FetchStats(b.db)
 	if err != nil {
 		return nil, err
 	}
@@ -222,28 +250,28 @@ func (b *Builder) Teams() ([]Team, error) {
 }
 
 // RenderIndex builds the home page HTML.
-func (b *Builder) RenderIndex(players []models.Player) (string, error) {
+func (b *Builder) RenderIndex() (string, error) {
 	teams, err := b.loadTeams()
 	if err != nil {
 		return "", err
 	}
 
-	playerDifferences, err := models.FetchPlayerDifferences(b.db.DB, 100)
+	playerDifferences, err := models.FetchPlayerDifferences(b.db, 100)
 	if err != nil {
 		return "", err
 	}
 
-	sevenDayTrends, err := models.FetchNDayTrends(b.db.DB, 7, 1)
+	sevenDayTrends, err := models.FetchNDayTrends(b.db, 7, 1)
 	if err != nil {
 		return "", err
 	}
 
-	thirtyDayTrends, err := models.FetchNDayTrends(b.db.DB, 30, 3)
+	thirtyDayTrends, err := models.FetchNDayTrends(b.db, 30, 3)
 	if err != nil {
 		return "", err
 	}
 
-	latestSnapshotDate, err := models.FetchLatestSnapshotDate(b.db.DB)
+	latestSnapshotDate, err := models.FetchLatestSnapshotDate(b.db)
 	if err != nil {
 		return "", err
 	}
@@ -262,13 +290,11 @@ func (b *Builder) RenderIndex(players []models.Player) (string, error) {
 
 	data := struct {
 		Title              string
-		Players            []models.Player
 		Teams              []Team
 		Tabs               []Tab
 		LatestSnapshotDate string
 	}{
 		Title:              "Outs Above Average Monitor",
-		Players:            players,
 		Teams:              teams,
 		Tabs:               tabs,
 		LatestSnapshotDate: latestSnapshotDate,
@@ -294,26 +320,16 @@ func (b *Builder) RenderPlayer(playerID int) (string, error) {
 
 	playerStatsBySeason := groupStatsBySeason(playerStats)
 	playerPositions := make(map[int]string)
+	chartStatsBySeason := make(map[int][]chartStat)
 	var playerName string
 
 	for _, season := range playerSeasons {
 		stats := playerStatsBySeason[season]
-		name := latestPlayerName(stats)
-		position := playerPosition(stats)
-		if position == "" {
-			position = "N/A"
-		}
-		playerPositions[season] = position
-		if playerName == "" && name != "" {
+		playerPositions[season] = playerPosition(stats)
+		chartStatsBySeason[season] = playerChartStats(stats)
+		if name := latestPlayerName(stats); playerName == "" && name != "" {
 			playerName = name
 		}
-	}
-
-	if _, ok := playerStatsBySeason[selectedSeason]; !ok {
-		playerStatsBySeason[selectedSeason] = []models.Stat{}
-	}
-	if _, ok := playerPositions[selectedSeason]; !ok {
-		playerPositions[selectedSeason] = "N/A"
 	}
 
 	teams, err := b.loadTeams()
@@ -321,11 +337,7 @@ func (b *Builder) RenderPlayer(playerID int) (string, error) {
 		return "", err
 	}
 
-	selectedStats := playerStatsBySeason[selectedSeason]
 	selectedPosition := playerPositions[selectedSeason]
-	if selectedPosition == "" {
-		selectedPosition = "N/A"
-	}
 
 	title := playerName + " Outs Above Average"
 	if selectedPosition != "N/A" {
@@ -336,9 +348,7 @@ func (b *Builder) RenderPlayer(playerID int) (string, error) {
 		Title               string
 		PlayerID            int
 		PlayerName          string
-		PlayerPosition      string
-		PlayerStats         []models.Stat
-		PlayerStatsBySeason map[int][]models.Stat
+		PlayerStatsBySeason map[int][]chartStat
 		PlayerPositions     map[int]string
 		Teams               []Team
 		Seasons             []int
@@ -347,9 +357,7 @@ func (b *Builder) RenderPlayer(playerID int) (string, error) {
 		Title:               title,
 		PlayerID:            playerID,
 		PlayerName:          playerName,
-		PlayerPosition:      selectedPosition,
-		PlayerStats:         selectedStats,
-		PlayerStatsBySeason: playerStatsBySeason,
+		PlayerStatsBySeason: chartStatsBySeason,
 		PlayerPositions:     playerPositions,
 		Teams:               teams,
 		Seasons:             playerSeasons,
@@ -379,25 +387,18 @@ func (b *Builder) RenderTeam(team Team) (string, error) {
 	selectedSeason := teamSeasons[0]
 
 	teamStatsBySeason := groupStatsBySeason(teamStats)
+	chartStatsBySeason := make(map[int][]chartStat)
 	sparklinesBySeason := make(map[int][]models.PlayerStats)
 	var capitalizedTeamName string
 
 	for _, season := range teamSeasons {
 		stats := normalizeTeamSeasonPositions(teamStatsBySeason[season])
-		name := teamName(stats)
-		teamStatsBySeason[season] = stats
+		chartStatsBySeason[season] = teamChartStats(stats)
 		sparklinesBySeason[season] = models.MapStatsByPlayerID(stats)
 
-		if capitalizedTeamName == "" && name != "" {
+		if name := teamName(stats); capitalizedTeamName == "" && name != "" {
 			capitalizedTeamName = name
 		}
-	}
-
-	if _, ok := teamStatsBySeason[selectedSeason]; !ok {
-		teamStatsBySeason[selectedSeason] = []models.Stat{}
-	}
-	if _, ok := sparklinesBySeason[selectedSeason]; !ok {
-		sparklinesBySeason[selectedSeason] = []models.PlayerStats{}
 	}
 
 	teams, err := b.loadTeams()
@@ -412,32 +413,27 @@ func (b *Builder) RenderTeam(team Team) (string, error) {
 		capitalizedTeamName = strings.TrimSpace(team.normalized)
 	}
 
-	selectedTeamStats := teamStatsBySeason[selectedSeason]
-	selectedSparklines := sparklinesBySeason[selectedSeason]
-
 	data := struct {
 		Title              string
 		TeamName           string
-		TeamStats          []models.Stat
 		Teams              []Team
 		SparklinesData     []models.PlayerStats
 		CurrentYear        string
 		TeamAbbreviation   string
 		Seasons            []int
 		SelectedSeason     int
-		TeamStatsBySeason  map[int][]models.Stat
+		TeamStatsBySeason  map[int][]chartStat
 		SparklinesBySeason map[int][]models.PlayerStats
 	}{
 		Title:              fmt.Sprintf("%s Outs Above Average", capitalizedTeamName),
 		TeamName:           capitalizedTeamName,
-		TeamStats:          selectedTeamStats,
 		Teams:              teams,
-		SparklinesData:     selectedSparklines,
+		SparklinesData:     sparklinesBySeason[selectedSeason],
 		CurrentYear:        strconv.Itoa(selectedSeason),
 		TeamAbbreviation:   models.GetTeamAbbreviation(capitalizedTeamName),
 		Seasons:            teamSeasons,
 		SelectedSeason:     selectedSeason,
-		TeamStatsBySeason:  teamStatsBySeason,
+		TeamStatsBySeason:  chartStatsBySeason,
 		SparklinesBySeason: sparklinesBySeason,
 	}
 

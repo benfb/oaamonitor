@@ -6,17 +6,16 @@ import (
 
 	"github.com/benfb/oaamonitor"
 	"github.com/benfb/oaamonitor/database"
-	"github.com/benfb/oaamonitor/models"
 )
 
 func TestBuilderRendersAllPageTypes(t *testing.T) {
 	dbPath := t.TempDir() + "/oaamonitor.db"
-	db, err := database.New(dbPath)
+	db, err := database.Open(dbPath)
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
-	if err := database.EnsureSchema(db.DB); err != nil {
+	if err := database.EnsureSchema(db); err != nil {
 		t.Fatalf("create schema: %v", err)
 	}
 
@@ -36,12 +35,7 @@ func TestBuilderRendersAllPageTypes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create builder: %v", err)
 	}
-	players, err := models.FetchPlayers(db.DB)
-	if err != nil {
-		t.Fatalf("fetch players: %v", err)
-	}
-
-	indexHTML, err := builder.RenderIndex(players)
+	indexHTML, err := builder.RenderIndex()
 	if err != nil {
 		t.Fatalf("render index: %v", err)
 	}

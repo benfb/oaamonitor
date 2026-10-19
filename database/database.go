@@ -3,49 +3,23 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"net/url"
-	"os"
 	"path/filepath"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
-// DB wraps the sql.DB connection and provides methods for database operations
-type DB struct {
-	*sql.DB
-}
-
-// Open opens a SQLite database with the repository's standard pragmas.
+// Open opens a SQLite database with the repository's standard pragmas and verifies the connection.
 func Open(dbPath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dsn(dbPath))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
-	return db, nil
-}
-
-// New creates and returns a new DB instance
-func New(dbPath string) (*DB, error) {
-	// Ensure data directory exists
-	dataDir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create data directory: %v", err)
-	}
-
-	db, err := Open(dbPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Test the connection
 	if err := db.Ping(); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("failed to ping database: %v", err)
+		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
-
-	log.Println("Database connection established")
-	return &DB{db}, nil
+	return db, nil
 }
 
 // EnsureSchema creates the tables and indexes required by OAA Monitor.
@@ -131,11 +105,6 @@ func Validate(path string) error {
 		return fmt.Errorf("quick_check returned %q", result)
 	}
 	return nil
-}
-
-// Close closes the database connection
-func (db *DB) Close() error {
-	return db.DB.Close()
 }
 
 func dsn(dbPath string) string {

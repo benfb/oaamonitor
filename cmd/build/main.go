@@ -140,7 +140,7 @@ func main() {
 		log.Fatalf("database path %s is a directory, expected SQLite file", cfg.DatabasePath)
 	}
 
-	db, err := database.New(cfg.DatabasePath)
+	db, err := database.Open(cfg.DatabasePath)
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}
@@ -150,13 +150,13 @@ func main() {
 		log.Fatalf("failed to create site builder: %v", err)
 	}
 
-	players, err := models.FetchPlayers(db.DB)
+	players, err := models.FetchPlayers(db)
 	if err != nil {
 		log.Fatalf("failed to fetch players: %v", err)
 	}
 
 	// Render index page
-	indexHTML, err := siteBuilder.RenderIndex(players)
+	indexHTML, err := siteBuilder.RenderIndex()
 	if err != nil {
 		log.Fatalf("failed to render index: %v", err)
 	}
