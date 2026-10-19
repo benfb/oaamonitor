@@ -47,12 +47,13 @@ jobs:
         if: github.event_name != 'push'
         run: go run ./cmd/fetch -database data/oaamonitor.db
 
-      # fetch has already checkpointed and validated the file. Write the dated
-      # backup first so a failed upload can never leave the history unprotected.
-      - name: Upload database and backup
+      # fetch has already checkpointed and validated the file. The weekly backup is
+      # overwritten by each run in the same ISO week, and written first so a failed
+      # upload can never leave the history unprotected.
+      - name: Upload database and weekly backup
         if: github.event_name != 'push'
         run: |
-          aws s3 cp data/oaamonitor.db "s3://$BUCKET/backups/$(date -u +%F)-oaamonitor.db"
+          aws s3 cp data/oaamonitor.db "s3://$BUCKET/backups/$(date -u +%G-W%V)-oaamonitor.db"
           aws s3 cp data/oaamonitor.db "s3://$BUCKET/$DB_KEY"
 
       - name: Build static site

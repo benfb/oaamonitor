@@ -33,13 +33,14 @@ A single workflow, `.github/workflows/site.yml`, runs on every push to `main` an
 schedule (08:00, 14:00, 20:00 and 02:00 UTC). Each run:
 
 1. runs the tests and downloads the database from Bunny Storage;
-2. on scheduled or manual runs, refreshes it, then uploads a dated copy to `backups/` followed by
+2. on scheduled or manual runs, refreshes it, then updates the weekly copy (`backups/YYYY-Www-oaamonitor.db`) followed by
    the database itself;
 3. builds the site, syncs `public/` to the zone, and purges the pull-zone cache.
 
 Runs are serialized, so the database is never refreshed and deployed concurrently. The sync excludes
-`downloads/` and `backups/`, which hold the live database and its dated backups in the same zone;
-without those excludes `--delete` removes the database. Backups are never pruned automatically.
+`downloads/` and `backups/`, which hold the live database and its weekly backups in the same zone;
+without those excludes `--delete` removes the database. A year of weekly backups is about 1.5 GB and is never pruned automatically. Each run overwrites
+that week's copy, so a bad refresh is only recoverable from the previous week's file.
 
 The workflow needs the Bunny Storage zone password as the `BUNNY_STORAGE_PASSWORD` repository
 secret. The bucket, New York S3 endpoint, region, and database key for
