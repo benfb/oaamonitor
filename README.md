@@ -30,17 +30,23 @@ It renders every player and team page, copies the minified static assets, and em
 ## Continuous deployment
 
 A single workflow, `.github/workflows/site.yml`, runs on every push to `main` and on the refresh
-schedule (08:00, 14:00, 20:00 and 02:00 UTC). Each run:
+schedule: 08:00, 14:00, 20:00 and 02:00 UTC from March through October, and once a day at
+14:00 UTC from November through February. Each run:
 
 1. runs the tests and downloads the database from Bunny Storage;
 2. on scheduled or manual runs, refreshes it, then updates the weekly copy (`backups/YYYY-Www-oaamonitor.db`) followed by
-   the database itself;
+   the database itself, and prunes old backups;
 3. builds the site, syncs `public/` to the zone, and purges the pull-zone cache.
 
 Runs are serialized, so the database is never refreshed and deployed concurrently. The sync excludes
 `downloads/` and `backups/`, which hold the live database and its weekly backups in the same zone;
-without those excludes `--delete` removes the database. A year of weekly backups is about 1.5 GB and is never pruned automatically. Each run overwrites
+without those excludes `--delete` removes the database. Each run overwrites
 that week's copy, so a bad refresh is only recoverable from the previous week's file.
+
+`cmd/prune` decides which backups to delete: it keeps the newest 12 weekly backups plus the oldest
+backup of every month (a week belongs to the month containing its Thursday), and ignores any file
+that isn't named like a weekly backup. Preview it locally by piping backup names to
+`go run ./cmd/prune`; it only prints the names to delete.
 
 The workflow needs the Bunny Storage zone password as the `BUNNY_STORAGE_PASSWORD` repository
 secret. The bucket, New York S3 endpoint, region, and database key for

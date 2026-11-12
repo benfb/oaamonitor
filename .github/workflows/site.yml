@@ -3,11 +3,11 @@ name: Refresh and Deploy
 on:
   push:
     branches: ["main"]
+  # Four refreshes a day March–October; once a day in the offseason, when the
+  # leaderboard rarely changes.
   schedule:
-    - cron: "0 8 * * *"
-    - cron: "0 14 * * *"
-    - cron: "0 20 * * *"
-    - cron: "0 2 * * *"
+    - cron: "0 2,8,14,20 * 3-10 *"
+    - cron: "0 14 * 1,2,11,12 *"
   workflow_dispatch:
 
 permissions:
@@ -55,6 +55,20 @@ jobs:
         run: |
           aws s3 cp data/oaamonitor.db "s3://$BUCKET/backups/$(date -u +%G-W%V)-oaamonitor.db"
           aws s3 cp data/oaamonitor.db "s3://$BUCKET/$DB_KEY"
+
+      # Keep the newest 12 weekly backups plus the oldest backup of each month.
+      # cmd/prune only prints names it recognizes as weekly backups; it never
+      # selects this week's file, which was just written.
+      - name: Prune old backups
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          aws s3 ls "s3://$BUCKET/backups/" | awk '{print $4}' > backups.txt
+          go run ./cmd/prune -keep-weekly 12 < backups.txt > prune.txt
+          echo "Found $(wc -l < backups.txt) backups; pruning $(wc -l < prune.txt)"
+          while read -r name; do
+            aws s3 rm "s3://$BUCKET/backups/$name"
+          done < prune.txt
 
       - name: Build static site
         run: go run ./cmd/build -database data/oaamonitor.db -out public
